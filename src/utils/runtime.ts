@@ -1,0 +1,15 @@
+import os from 'node:os';
+import process from 'node:process';
+
+export function resolveActor(): string {
+  const envActor = process.env.STARDATE_ACTOR;
+  if (envActor) {
+    return envActor;
+  }
+  const user = process.env.USER ?? process.env.LOGNAME ?? 'cli';
+  return `user:${user}`;
+}
+
+export function resolveTimestamp(): string {
+  return new Date().toISOString();
+}

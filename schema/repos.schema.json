@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/repos.schema.json",
+  "title": "Registered Code Repositories",
+  "type": "object",
+  "required": [
+    "repos"
+  ],
+  "properties": {
+    "repos": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "remote",
+          "default_branch"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "github",
+              "gitlab",
+              "bitbucket"
+            ]
+          },
+          "remote": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default_branch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "branch_prefix": {
+            "type": "object",
+            "required": [
+              "epic",
+              "story",
+              "subtask",
+              "bug"
+            ],
+            "properties": {
+              "epic": {
+                "$ref": "#/$defs/branchPrefix"
+              },
+              "story": {
+                "$ref": "#/$defs/branchPrefix"
+              },
+              "subtask": {
+                "$ref": "#/$defs/branchPrefix"
+              },
+              "bug": {
+                "$ref": "#/$defs/branchPrefix"
+              }
+            },
+            "additionalProperties": false
+          },
+          "pr": {
+            "type": "object",
+            "properties": {
+              "open_by_default": {
+                "type": "boolean"
+              },
+              "base": {
+                "type": "string",
+                "minLength": 1
+              },
+              "labels": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "reviewers_from_ticket_approvers": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "protections": {
+            "type": "object",
+            "properties": {
+              "require_status_checks": {
+                "type": "boolean"
+              },
+              "disallow_force_push": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "generated_by": {
+            "type": "string",
+            "pattern": "^stardate@[^\\s]+$"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "branchPrefix": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    }
+  }
+}

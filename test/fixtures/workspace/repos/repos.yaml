@@ -1,0 +1,19 @@
+repos:
+  - id: repo.checkout
+    provider: github
+    remote: git@github.com:acme/checkout.git
+    default_branch: main
+    branch_prefix:
+      epic: epic
+      story: feat
+      subtask: task
+      bug: fix
+    pr:
+      open_by_default: true
+      base: main
+      labels:
+        - ticketed
+      reviewers_from_ticket_approvers: true
+    protections:
+      require_status_checks: true
+      disallow_force_push: true

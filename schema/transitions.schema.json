@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/transitions.schema.json",
+  "title": "Ticket Status Transitions",
+  "type": "object",
+  "required": [
+    "allowed"
+  ],
+  "properties": {
+    "allowed": {
+      "type": "object",
+      "required": [
+        "epic",
+        "story",
+        "subtask",
+        "bug"
+      ],
+      "properties": {
+        "epic": {
+          "$ref": "#/$defs/typeTransitions"
+        },
+        "story": {
+          "$ref": "#/$defs/typeTransitions"
+        },
+        "subtask": {
+          "$ref": "#/$defs/typeTransitions"
+        },
+        "bug": {
+          "$ref": "#/$defs/typeTransitions"
+        }
+      },
+      "additionalProperties": false
+    },
+    "generated_by": {
+      "type": "string",
+      "pattern": "^stardate@[^\\s]+$"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "Backlog",
+        "Ready",
+        "In Progress",
+        "Blocked",
+        "In Review",
+        "Done",
+        "Archived",
+        "Canceled"
+      ]
+    },
+    "typeTransitions": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/status"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/status"
+        }
+      }
+    }
+  }
+}

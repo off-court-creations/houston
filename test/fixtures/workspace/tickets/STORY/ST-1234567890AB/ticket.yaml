@@ -1,0 +1,27 @@
+id: ST-1234567890AB
+type: story
+summary: "Fixture Story"
+title: "Fixture Story"
+priority: P1
+assignee: user:alice
+description: ./description.md
+components:
+  - checkout
+  - payments
+labels:
+  - frontend
+due_date: 2024-02-01
+status: Backlog
+parent_id: EPIC-1234567890AB
+created_at: 2024-01-01T00:00:00Z
+updated_at: 2024-01-01T00:00:00Z
+version: 1
+code:
+  branch_strategy: per-story
+  auto_create_branch: true
+  auto_open_pr: true
+  repos:
+    - repo_id: repo.checkout
+      branch: feat/ST-1234567890AB--fixture
+      created_by: user:alice
+      created_at: 2024-01-01T00:00:00Z

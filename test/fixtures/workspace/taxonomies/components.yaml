@@ -1,0 +1,5 @@
+components:
+  - checkout
+  - payments
+  - accounts
+  - notifications

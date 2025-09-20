@@ -1,0 +1,25 @@
+#!/bin/sh
+# Stardate prepare-commit-msg hook
+# Adds `Ticket: <ID>` trailer when commit message references branch naming convention.
+
+case "$2" in
+  commit|merge|squash)
+    exit 0
+    ;;
+esac
+
+BRANCH_NAME="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+if [ -z "$BRANCH_NAME" ]; then
+  exit 0
+fi
+
+TICKET_ID="$(printf "%s" "$BRANCH_NAME" | sed -n 's#.*\(EPIC\|ST\|SB\|BG\)-[A-Za-z0-9]\+#\1-&#p' | head -n1)"
+if [ -z "$TICKET_ID" ]; then
+  exit 0
+fi
+
+if grep -qi "^Ticket: $TICKET_ID$" "$1"; then
+  exit 0
+fi
+
+echo "\nTicket: $TICKET_ID" >> "$1"

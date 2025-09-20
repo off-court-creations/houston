@@ -1,0 +1,10 @@
+routes:
+  checkout:
+    - repo.checkout
+defaults:
+  story:
+    - repo.checkout
+  subtask:
+    - repo.checkout
+  bug:
+    - repo.checkout

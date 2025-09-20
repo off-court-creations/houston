@@ -1,0 +1,14 @@
+routes:
+  checkout:
+    - repo.checkout
+  payments:
+    - repo.checkout
+  accounts:
+    - repo.checkout
+defaults:
+  story:
+    - repo.checkout
+  subtask:
+    - repo.checkout
+  bug:
+    - repo.checkout

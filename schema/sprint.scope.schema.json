@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/sprint.scope.schema.json",
+  "title": "Sprint Scope",
+  "type": "object",
+  "properties": {
+    "epics": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^EPIC-[A-Za-z0-9]{10,}$"
+      }
+    },
+    "stories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ST-[A-Za-z0-9]{10,}$"
+      }
+    },
+    "subtasks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^SB-[A-Za-z0-9]{10,}$"
+      }
+    },
+    "bugs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^BG-[A-Za-z0-9]{10,}$"
+      }
+    },
+    "generated_by": {
+      "type": "string",
+      "pattern": "^stardate@[^\\s]+$"
+    }
+  },
+  "additionalProperties": false
+}

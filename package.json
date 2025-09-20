@@ -1,0 +1,68 @@
+{
+  "name": "@archway/stardate",
+  "version": "0.1.0",
+  "description": "Stardate — git-native ticketing CLI for schema-enforced workflows.",
+  "type": "module",
+  "bin": {
+    "stardate": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "hooks",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "schemas": "node ./scripts/emit-schemas.mjs",
+    "prepublishOnly": "npm run clean && npm run build && npm run schemas"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "commander": "^11.1.0",
+    "glob": "^10.3.10",
+    "node-fetch": "^3.3.2",
+    "ulid": "^2.3.0",
+    "yaml": "^2.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "tsx": "^3.14.0",
+    "tsup": "^7.2.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.3.1",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/archway/stardate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/archway/stardate/issues"
+  },
+  "homepage": "https://github.com/archway/stardate#readme",
+  "keywords": [
+    "cli",
+    "git",
+    "tickets",
+    "stardate"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,7 @@
+users:
+  - id: user:pm_bob
+    name: Bob PM
+  - id: user:alice
+    name: Alice Dev
+  - id: user:cara
+    name: Cara Lead

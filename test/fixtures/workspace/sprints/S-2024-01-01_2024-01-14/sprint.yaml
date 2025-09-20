@@ -1,0 +1,10 @@
+id: S-2024-01-01_2024-01-14
+name: "Fixture Sprint"
+start_date: 2024-01-01
+end_date: 2024-01-14
+goal: "Validate CLI foundations"
+team_capacity:
+  user:alice: 40h
+  user:pm_bob: 10h
+burndown_source: ./scope.yaml
+generated_by: stardate@0.1.0

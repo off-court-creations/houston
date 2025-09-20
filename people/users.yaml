@@ -1,0 +1,16 @@
+users:
+  - id: user:pm_bob
+    name: Bob Product
+    email: pm_bob@example.com
+    roles:
+      - product_manager
+  - id: user:alice
+    name: Alice Dev
+    email: alice@example.com
+    roles:
+      - engineer
+  - id: user:cara
+    name: Cara Lead
+    email: cara@example.com
+    roles:
+      - tech_lead
