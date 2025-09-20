@@ -12,7 +12,7 @@ let tempDir: string;
 const originalCwd = process.cwd;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-new-flags-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-new-flags-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -31,7 +31,7 @@ describe('new command auto people sync', () => {
   beforeEach(() => {
     setupWorkspace();
     process.cwd = () => tempDir;
-    process.env.STARDATE_ACTOR = 'user:test';
+    process.env.HOUSTON_ACTOR = 'user:test';
   });
 
   afterEach(() => {
@@ -46,7 +46,7 @@ describe('new command auto people sync', () => {
 
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'new',
       'epic',
       '--title',

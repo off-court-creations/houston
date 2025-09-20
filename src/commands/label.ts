@@ -15,7 +15,7 @@ export function registerLabelCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket label ST-123 +frontend +ux -needs-spec\nNotes:\n  - Prefix a label with + to add, - to remove.\n`,
+      `\nExamples:\n  $ houston ticket label ST-123 +frontend +ux -needs-spec\nNotes:\n  - Prefix a label with + to add, - to remove.\n`,
     );
 }
 

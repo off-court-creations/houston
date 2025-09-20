@@ -21,7 +21,7 @@ let tempDir: string;
 const originalCwd = process.cwd;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-component-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-component-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -54,7 +54,7 @@ describe('component command', () => {
 
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'component',
       'add',
       '--id',
@@ -77,9 +77,9 @@ describe('component command', () => {
     promptInputMock.mockResolvedValueOnce('fresh-comp');
     promptMultiSelectMock.mockResolvedValueOnce(['repo.checkout']);
 
-    process.env.STARDATE_FORCE_INTERACTIVE = '1';
-    await program.parseAsync(['node', 'stardate', 'component', 'add']);
-    delete process.env.STARDATE_FORCE_INTERACTIVE;
+    process.env.HOUSTON_FORCE_INTERACTIVE = '1';
+    await program.parseAsync(['node', 'houston', 'component', 'add']);
+    delete process.env.HOUSTON_FORCE_INTERACTIVE;
 
     const components = YAML.parse(fs.readFileSync(componentsFile, 'utf8')) as { components: string[] };
     expect(components.components).toContain('fresh-comp');

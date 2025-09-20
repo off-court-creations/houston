@@ -83,7 +83,7 @@ const ticketBase = {
     created_at: { type: 'string', format: 'date-time' },
     updated_at: { type: 'string', format: 'date-time' },
     version: { type: 'integer', minimum: 1 },
-    generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+    generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
     acceptance_criteria: {
       type: 'array',
       items: { $ref: '#/$defs/nonEmptyString' },
@@ -260,7 +260,7 @@ const sprint = {
     },
     burndown_source: { type: 'string', pattern: '^(\\.\\./|\\./|[A-Za-z0-9])' },
     notes: { type: 'string' },
-    generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+    generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
   },
   additionalProperties: false,
 };
@@ -291,7 +291,7 @@ const sprintScope = {
       uniqueItems: true,
       items: { type: 'string', pattern: '^BG-[A-Za-z0-9]{10,}$' },
     },
-    generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+    generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
   },
   additionalProperties: false,
 };
@@ -307,7 +307,7 @@ const backlog = {
       properties: {
         ordered: { type: 'array', items: { $ref: '#/$defs/backlogTicketId' } },
         notes: { type: 'string' },
-        generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+        generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
       },
       additionalProperties: false,
     },
@@ -317,7 +317,7 @@ const backlog = {
       properties: {
         candidates: { type: 'array', items: { $ref: '#/$defs/backlogTicketId' } },
         notes: { type: 'string' },
-        generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+        generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
       },
       additionalProperties: false,
     },
@@ -378,7 +378,7 @@ const repos = {
             },
             additionalProperties: false,
           },
-          generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+          generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
         },
         additionalProperties: false,
       },
@@ -417,7 +417,7 @@ const componentRouting = {
       },
       additionalProperties: false,
     },
-    generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+    generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
   },
   additionalProperties: false,
 };
@@ -440,7 +440,7 @@ const transitions = {
       },
       additionalProperties: false,
     },
-    generated_by: { type: 'string', pattern: '^stardate@[^\\s]+$' },
+    generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
   },
   additionalProperties: false,
   $defs: {

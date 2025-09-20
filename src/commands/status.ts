@@ -13,7 +13,7 @@ export function registerStatusCommand(program: Command): void {
     .action(async (ticketId: string, status: string) => {
       await handleStatus(ticketId, status);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate ticket status ST-123 "In Review"\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston ticket status ST-123 "In Review"\n`);
 }
 
 async function handleStatus(ticketId: string, status: string): Promise<void> {

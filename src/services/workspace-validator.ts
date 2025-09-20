@@ -90,7 +90,7 @@ export async function validateWorkspace({ config: providedConfig, target }: Vali
       errors.push({
         file: document.relativePath,
         rule: 'signature',
-        message: 'generated_by must start with stardate@',
+        message: 'generated_by must start with houston@',
       });
     }
   }

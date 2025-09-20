@@ -46,12 +46,12 @@ interface CreateWorkspaceOptions {
   interactive?: boolean;
 }
 
-const WORKSPACE_GENERATOR = 'stardate@workspace-create';
+const WORKSPACE_GENERATOR = 'houston@workspace-create';
 const IGNORED_DIRECTORY_ENTRIES = new Set(['.', '..', '.git', '.gitignore', '.gitattributes', '.DS_Store']);
 
 const FILE_TEMPLATES: Array<[string, string]> = [
   [
-    'stardate.config.yaml',
+    'houston.config.yaml',
     `tracking:\n  root: .\n  schemaDir: schema\n  ticketsDir: tickets\n  backlogDir: backlog\n  sprintsDir: sprints\n`,
   ],
   [
@@ -88,7 +88,7 @@ const FILE_TEMPLATES: Array<[string, string]> = [
   ],
   [
     'schema/README.md',
-    '# Workspace Schemas\n\nRun `stardate schemas` to generate the JSON schema files from the CLI.\n',
+    '# Workspace Schemas\n\nRun `houston schemas` to generate the JSON schema files from the CLI.\n',
   ],
   [
     'tickets/README.md',
@@ -115,12 +115,12 @@ export function registerWorkspaceCommand(program: Command): void {
     .description('Inspect workspace state')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate workspace info\n  $ stardate workspace info --json\n  $ stardate workspace new my-workspace --no-git\n  $ stardate workspace new --interactive\n`,
+      `\nExamples:\n  $ houston workspace info\n  $ houston workspace info --json\n  $ houston workspace new my-workspace --no-git\n  $ houston workspace new --interactive\n`,
     );
 
   workspace
     .command('new')
-    .description('Scaffold a new Stardate workspace')
+    .description('Scaffold a new Houston workspace')
     .argument('[directory]', 'target directory (defaults to current directory)', '.')
     .option('--force', 'allow creation in a non-empty directory')
     .option('--no-git', 'skip git initialization')
@@ -141,11 +141,11 @@ export function registerWorkspaceCommand(program: Command): void {
       if (options.git !== false) {
         initGitRepository(targetDir);
       }
-      console.log(c.ok(`Initialized Stardate workspace at ${targetDir}`));
+      console.log(c.ok(`Initialized Houston workspace at ${targetDir}`));
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate workspace new\n  $ stardate workspace new ./tracking --no-git\n  $ stardate workspace new ./tracking --force\n  $ stardate workspace new ./tracking --no-interactive --force\nNotes:\n  - Creates a directory structure with schema, tickets, backlog, sprints, repos, people, taxonomies.\n  - Use --force to overwrite existing files.\n  - Use --no-interactive to bypass the wizard in TTY contexts.\n`,
+      `\nExamples:\n  $ houston workspace new\n  $ houston workspace new ./tracking --no-git\n  $ houston workspace new ./tracking --force\n  $ houston workspace new ./tracking --no-interactive --force\nNotes:\n  - Creates a directory structure with schema, tickets, backlog, sprints, repos, people, taxonomies.\n  - Use --force to overwrite existing files.\n  - Use --no-interactive to bypass the wizard in TTY contexts.\n`,
     );
 
   workspace
@@ -243,7 +243,7 @@ export function registerWorkspaceCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate workspace info\n  $ stardate workspace info --json\n`,
+      `\nExamples:\n  $ houston workspace info\n  $ houston workspace info --json\n`,
     );
 }
 
@@ -328,7 +328,7 @@ function initGitRepository(targetDir: string): void {
 }
 
 async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWorkspaceOptions = {}): Promise<void> {
-  await uiIntro('Create Stardate Workspace');
+  await uiIntro('Create Houston Workspace');
   const directory = await uiText('Directory', { defaultValue: initialDir ?? '.', required: true });
   const targetDir = path.resolve(process.cwd(), directory ?? '.');
   const existsAndHasFiles = hasMeaningfulEntries(targetDir);

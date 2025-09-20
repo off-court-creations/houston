@@ -20,7 +20,7 @@ export function registerLinkCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket link --child ST-123 --parent EP-9\n  $ stardate ticket link --child SUB-77 --parent ST-123\n`,
+      `\nExamples:\n  $ houston ticket link --child ST-123 --parent EP-9\n  $ houston ticket link --child SUB-77 --parent ST-123\n`,
     );
 }
 

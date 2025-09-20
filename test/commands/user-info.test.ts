@@ -20,7 +20,7 @@ let tempDir: string;
 const originalCwd = process.cwd;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-user-info-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-user-info-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -40,11 +40,11 @@ describe('user info command', () => {
   beforeEach(() => {
     setupWorkspace();
     process.cwd = () => tempDir;
-    process.env.STARDATE_FORCE_INTERACTIVE = '1';
+    process.env.HOUSTON_FORCE_INTERACTIVE = '1';
   });
 
   afterEach(() => {
-    delete process.env.STARDATE_FORCE_INTERACTIVE;
+    delete process.env.HOUSTON_FORCE_INTERACTIVE;
     teardownWorkspace();
   });
 
@@ -52,7 +52,7 @@ describe('user info command', () => {
     const program = buildProgram();
 
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await program.parseAsync(['node', 'stardate', 'user', 'info', '--id', 'user:alice', '--json']);
+    await program.parseAsync(['node', 'houston', 'user', 'info', '--id', 'user:alice', '--json']);
     expect(spy).toHaveBeenCalled();
     const output = spy.mock.calls.map((call) => call[0]).join('\n');
     expect(output).toContain('user:alice');
@@ -64,7 +64,7 @@ describe('user info command', () => {
     promptSelectMock.mockResolvedValueOnce('user:alice');
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await program.parseAsync(['node', 'stardate', 'user', 'info']);
+    await program.parseAsync(['node', 'houston', 'user', 'info']);
 
     expect(promptSelectMock).toHaveBeenCalled();
     const output = spy.mock.calls.map((call) => call[0]).join('\n');

@@ -20,7 +20,7 @@ export function registerBacklogCommand(program: Command): void {
     .description('Backlog management commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate backlog add ST-123 ST-124\n  $ stardate backlog plan --sprint S-2025-10-01_2025-10-14 --take 5\n  $ stardate backlog show\n`,
+      `\nExamples:\n  $ houston backlog add ST-123 ST-124\n  $ houston backlog plan --sprint S-2025-10-01_2025-10-14 --take 5\n  $ houston backlog show\n`,
     );
 
   backlog
@@ -30,7 +30,7 @@ export function registerBacklogCommand(program: Command): void {
     .action(async (ticketIds: string[]) => {
       await handleBacklogAdd(ticketIds);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate backlog add ST-123 ST-124\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston backlog add ST-123 ST-124\n`);
 
   backlog
     .command('plan')
@@ -42,7 +42,7 @@ export function registerBacklogCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate backlog plan --sprint S-2025-10-01_2025-10-14\n  $ stardate backlog plan --sprint S-2025-10-01_2025-10-14 --take 10\n`,
+      `\nExamples:\n  $ houston backlog plan --sprint S-2025-10-01_2025-10-14\n  $ houston backlog plan --sprint S-2025-10-01_2025-10-14 --take 10\n`,
     );
 
   backlog
@@ -53,7 +53,7 @@ export function registerBacklogCommand(program: Command): void {
     .action(async (options: { json?: boolean; includeMissing?: boolean }) => {
       await handleBacklogShow(options);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate backlog show\n  $ stardate backlog show --json\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston backlog show\n  $ houston backlog show --json\n`);
 }
 
 async function handleBacklogAdd(ticketIds: string[]): Promise<void> {

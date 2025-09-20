@@ -21,20 +21,20 @@ describe('config command', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-config-command-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-config-command-'));
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('prints workspace paths when inside a Stardate workspace', async () => {
+  it('prints workspace paths when inside a Houston workspace', async () => {
     seedWorkspace(tempDir);
     const program = createProgram();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await program.parseAsync(['node', 'stardate', 'config']);
+    await program.parseAsync(['node', 'houston', 'config']);
 
     const output = writeSpy.mock.calls.map((call) => call[0]).join('');
     const resolvedRoot = fs.realpathSync(tempDir);
@@ -51,10 +51,10 @@ describe('config command', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await program.parseAsync(['node', 'stardate', 'config']);
+    await program.parseAsync(['node', 'houston', 'config']);
 
     const output = writeSpy.mock.calls.map((call) => call[0]).join('');
-    expect(output).toContain('stardate version:');
+    expect(output).toContain('houston version:');
     expect(output).toContain('workspace: (not detected)');
     expect(output).not.toContain('tracking root:');
 
@@ -67,7 +67,7 @@ describe('config command', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await program.parseAsync(['node', 'stardate', 'config', '--json']);
+    await program.parseAsync(['node', 'houston', 'config', '--json']);
 
     const output = writeSpy.mock.calls.map((call) => call[0]).join('');
     const payload = JSON.parse(output);

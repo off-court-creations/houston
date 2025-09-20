@@ -21,7 +21,7 @@ let tempDir: string;
 const originalCwd = process.cwd;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-user-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-user-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -41,11 +41,11 @@ describe('user command', () => {
   beforeEach(() => {
     setupWorkspace();
     process.cwd = () => tempDir;
-    process.env.STARDATE_FORCE_INTERACTIVE = '1';
+    process.env.HOUSTON_FORCE_INTERACTIVE = '1';
   });
 
   afterEach(() => {
-    delete process.env.STARDATE_FORCE_INTERACTIVE;
+    delete process.env.HOUSTON_FORCE_INTERACTIVE;
     teardownWorkspace();
   });
 
@@ -55,7 +55,7 @@ describe('user command', () => {
 
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'user',
       'add',
       '--id',
@@ -86,7 +86,7 @@ describe('user command', () => {
 
     promptMultiSelectMock.mockImplementation(async () => ['developer']);
 
-    await program.parseAsync(['node', 'stardate', 'user', 'add', '--interactive']);
+    await program.parseAsync(['node', 'houston', 'user', 'add', '--interactive']);
 
     const users = YAML.parse(fs.readFileSync(usersFile, 'utf8')) as { users: Array<{ id: string; name?: string }> };
     const entry = users.users.find((person) => person.id === 'user:interactive');

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { createLogger } from '../logger.js';
 
-const CONFIG_FILE_CANDIDATES = ['stardate.config.yaml', 'stardate.config.yml'];
+const CONFIG_FILE_CANDIDATES = ['houston.config.yaml', 'houston.config.yml'];
 
 export interface TrackingConfig {
   root: string;
@@ -71,7 +71,7 @@ function applyDefaults(workspaceRoot: string, configFromFile: Partial<CliConfig>
     },
     metadata: {
       version: pkgVersion,
-      generator: `stardate@${pkgVersion}`,
+      generator: `houston@${pkgVersion}`,
     },
   };
 }
@@ -85,7 +85,7 @@ export function loadConfig(options: LoadConfigOptions = {}): CliConfig {
   if (!resolution.config) {
     const startDir = fs.realpathSync(options.cwd ?? process.cwd());
     throw new WorkspaceConfigNotFoundError(
-      `No Stardate workspace detected from ${startDir}. Run this command inside a workspace or set STARDATE_CONFIG_PATH.`,
+      `No Houston workspace detected from ${startDir}. Run this command inside a workspace or set HOUSTON_CONFIG_PATH.`,
     );
   }
   return resolution.config;
@@ -148,7 +148,7 @@ function locateConfigFile(startDir: string): ConfigFileLocation | undefined {
     }
     currentDir = parent;
   }
-  const envConfig = process.env.STARDATE_CONFIG_PATH;
+  const envConfig = process.env.HOUSTON_CONFIG_PATH;
   if (envConfig && fs.existsSync(envConfig)) {
     const resolvedPath = fs.realpathSync(envConfig);
     const workspaceRoot = fs.realpathSync(path.dirname(resolvedPath));

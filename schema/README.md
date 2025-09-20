@@ -1,7 +1,7 @@
 # Schema Directory
 
 Authoritative JSON Schemas describing every persisted structure in the tracking
-repository. These schemas are consumed by the forthcoming `stardate` CLI and by CI to
+repository. These schemas are consumed by the forthcoming `houston` CLI and by CI to
 validate pull requests.
 
 ## Available Schemas

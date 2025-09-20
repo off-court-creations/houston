@@ -20,11 +20,11 @@ export type Logger = {
 };
 
 function resolveLevel(): LogLevel {
-  const raw = process.env.STARDATE_LOG_LEVEL?.toLowerCase();
+  const raw = process.env.HOUSTON_LOG_LEVEL?.toLowerCase();
   if (raw && raw in LEVELS) {
     return raw as LogLevel;
   }
-  if (process.env.DEBUG === '*' || process.env.DEBUG?.includes('stardate')) {
+  if (process.env.DEBUG === '*' || process.env.DEBUG?.includes('houston')) {
     return 'debug';
   }
   return 'info';

@@ -128,7 +128,7 @@
     },
     "generated_by": {
       "type": "string",
-      "pattern": "^stardate@[^\\s]+$"
+      "pattern": "^houston@[^\\s]+$"
     },
     "acceptance_criteria": {
       "type": "array",

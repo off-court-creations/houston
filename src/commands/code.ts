@@ -52,7 +52,7 @@ export function registerCodeCommand(program: Command): void {
     .description('Code integration helpers')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket code start ST-123 --repo repo.web\n  $ stardate ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ stardate ticket code open-pr ST-123 --repo repo.web --base main\n  $ stardate ticket code sync ST-123\nNotes:\n  - Provider integration requires credentials (e.g. STARDATE_GITHUB_TOKEN).\n`,
+      `\nExamples:\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ houston ticket code open-pr ST-123 --repo repo.web --base main\n  $ houston ticket code sync ST-123\nNotes:\n  - Provider integration requires credentials (e.g. HOUSTON_GITHUB_TOKEN).\n`,
     );
 
   code
@@ -67,7 +67,7 @@ export function registerCodeCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket code start ST-123 --repo repo.web\n  $ stardate ticket code start ST-123 --repo repo.web --repo repo.api\n  $ stardate ticket code start ST-123 --repo repo.web --branch feat/ST-123--checkout\n`,
+      `\nExamples:\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket code start ST-123 --repo repo.web --repo repo.api\n  $ houston ticket code start ST-123 --repo repo.web --branch feat/ST-123--checkout\n`,
     );
 
   code
@@ -84,7 +84,7 @@ export function registerCodeCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ stardate ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout --pr 42\n`,
+      `\nExamples:\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout --pr 42\n`,
     );
 
   code
@@ -102,7 +102,7 @@ export function registerCodeCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket code open-pr ST-123 --repo repo.web --base main\n  $ stardate ticket code open-pr ST-123 --repo repo.web --number 42 --url https://github.com/org/repo/pull/42\n`,
+      `\nExamples:\n  $ houston ticket code open-pr ST-123 --repo repo.web --base main\n  $ houston ticket code open-pr ST-123 --repo repo.web --number 42 --url https://github.com/org/repo/pull/42\n`,
     );
 
   code
@@ -113,7 +113,7 @@ export function registerCodeCommand(program: Command): void {
     .action(async (ticketId: string, opts: { repo?: string }) => {
       await handleCodeSync(ticketId, opts.repo);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate ticket code sync ST-123\n  $ stardate ticket code sync ST-123 --repo repo.web\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston ticket code sync ST-123\n  $ houston ticket code sync ST-123 --repo repo.web\n`);
 }
 
 function collectValues(value: string, previous: string[]): string[] {

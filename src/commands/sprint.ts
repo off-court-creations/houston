@@ -30,7 +30,7 @@ export function registerSprintCommand(program: Command): void {
     .description('Sprint management commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ stardate sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n  $ stardate sprint list --status active\n`,
+      `\nExamples:\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n  $ houston sprint list --status active\n`,
     );
 
   sprint
@@ -45,7 +45,7 @@ export function registerSprintCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate sprint new --name "Sprint 42"\n  $ stardate sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14 --goal "Ship checkout v2"\nNotes:\n  - If dates are omitted, defaults to today and +14 days.\n`,
+      `\nExamples:\n  $ houston sprint new --name "Sprint 42"\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14 --goal "Ship checkout v2"\nNotes:\n  - If dates are omitted, defaults to today and +14 days.\n`,
     );
 
   sprint
@@ -56,7 +56,7 @@ export function registerSprintCommand(program: Command): void {
     .action(async (sprintId: string, ticketIds: string[]) => {
       await handleSprintAdd(sprintId, ticketIds);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n`);
 
   sprint
     .command('list')
@@ -66,7 +66,7 @@ export function registerSprintCommand(program: Command): void {
     .action(async (options: { json?: boolean; status?: ('active' | 'upcoming' | 'completed' | 'unknown')[] }) => {
       await handleSprintList(options);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate sprint list\n  $ stardate sprint list --status active completed\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston sprint list\n  $ houston sprint list --status active completed\n`);
 }
 
 async function handleSprintNew(options: SprintNewOptions): Promise<void> {

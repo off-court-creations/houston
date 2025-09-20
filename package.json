@@ -1,10 +1,10 @@
 {
-  "name": "@archway/stardate",
+  "name": "@archway/houston",
   "version": "0.1.0",
-  "description": "Stardate — git-native ticketing CLI for schema-enforced workflows.",
+  "description": "Houston — git-native ticketing CLI for schema-enforced workflows.",
   "type": "module",
   "bin": {
-    "stardate": "dist/index.js"
+    "houston": "dist/index.js"
   },
   "files": [
     "dist",
@@ -53,17 +53,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/archway/stardate.git"
+    "url": "https://github.com/archway/houston.git"
   },
   "bugs": {
-    "url": "https://github.com/archway/stardate/issues"
+    "url": "https://github.com/archway/houston/issues"
   },
-  "homepage": "https://github.com/archway/stardate#readme",
+  "homepage": "https://github.com/archway/houston#readme",
   "keywords": [
     "cli",
     "git",
     "tickets",
-    "stardate"
+    "houston"
   ],
   "publishConfig": {
     "access": "public"

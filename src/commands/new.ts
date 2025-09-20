@@ -62,7 +62,7 @@ export function registerNewCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ stardate ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-123 --story-points 3\n  $ stardate ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ stardate ticket new story --interactive\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n`,
+      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-123 --story-points 3\n  $ houston ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ houston ticket new story --interactive\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n`,
     );
 }
 

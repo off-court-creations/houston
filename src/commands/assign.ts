@@ -13,7 +13,7 @@ export function registerAssignCommand(program: Command): void {
     .action(async (ticketId: string, userId: string) => {
       await handleAssign(ticketId, userId);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate ticket assign ST-123 user:alice\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston ticket assign ST-123 user:alice\n`);
 }
 
 async function handleAssign(ticketId: string, userId: string): Promise<void> {

@@ -2,7 +2,7 @@ import os from 'node:os';
 import process from 'node:process';
 
 export function resolveActor(): string {
-  const envActor = process.env.STARDATE_ACTOR;
+  const envActor = process.env.HOUSTON_ACTOR;
   if (envActor) {
     return envActor;
   }

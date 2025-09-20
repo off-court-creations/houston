@@ -23,7 +23,7 @@ let tempDir: string;
 const originalCwd = process.cwd;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-new-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-new-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -43,12 +43,12 @@ describe('new command interactive mode', () => {
   beforeEach(() => {
     setupWorkspace();
     process.cwd = () => tempDir;
-    process.env.STARDATE_ACTOR = 'user:test';
-    process.env.STARDATE_FORCE_INTERACTIVE = '1';
+    process.env.HOUSTON_ACTOR = 'user:test';
+    process.env.HOUSTON_FORCE_INTERACTIVE = '1';
   });
 
   afterEach(() => {
-    delete process.env.STARDATE_FORCE_INTERACTIVE;
+    delete process.env.HOUSTON_FORCE_INTERACTIVE;
     teardownWorkspace();
   });
 
@@ -78,7 +78,7 @@ describe('new command interactive mode', () => {
       return [];
     });
 
-    await program.parseAsync(['node', 'stardate', 'new', 'epic']);
+    await program.parseAsync(['node', 'houston', 'new', 'epic']);
 
     const created = fs.readdirSync(epicDir).find((entry) => !before.has(entry));
     expect(created).toBeDefined();
@@ -117,7 +117,7 @@ describe('new command interactive mode', () => {
       return [];
     });
 
-    await program.parseAsync(['node', 'stardate', 'new', 'epic', '--interactive']);
+    await program.parseAsync(['node', 'houston', 'new', 'epic', '--interactive']);
 
     const afterComponents = YAML.parse(fs.readFileSync(componentsFile, 'utf8')) as { components: string[] };
     expect(afterComponents.components).toContain('new-component');
@@ -152,7 +152,7 @@ describe('new command interactive mode', () => {
       return [];
     });
 
-    await program.parseAsync(['node', 'stardate', 'new', 'story']);
+    await program.parseAsync(['node', 'houston', 'new', 'story']);
 
     const created = fs.readdirSync(storyDir).find((entry) => !before.has(entry));
     expect(created).toBeDefined();
@@ -192,7 +192,7 @@ describe('new command interactive mode', () => {
       return [];
     });
 
-    await program.parseAsync(['node', 'stardate', 'new', 'subtask']);
+    await program.parseAsync(['node', 'houston', 'new', 'subtask']);
 
     const entries = fs.existsSync(subtaskDir) ? fs.readdirSync(subtaskDir) : [];
     const created = entries.find((entry) => !before.has(entry));

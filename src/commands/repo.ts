@@ -9,7 +9,7 @@ export function registerRepoCommand(program: Command): void {
   const repo = program
     .command('repo')
     .description('Repository inspection commands')
-    .addHelpText('after', `\nExamples:\n  $ stardate repo list\n  $ stardate repo list --json\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston repo list\n  $ houston repo list --json\n`);
 
   repo
     .command('list')
@@ -18,7 +18,7 @@ export function registerRepoCommand(program: Command): void {
     .action(async (options: { json?: boolean }) => {
       await handleRepoList(options);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate repo list\n  $ stardate repo list --json\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston repo list\n  $ houston repo list --json\n`);
 }
 
 async function handleRepoList(options: { json?: boolean }): Promise<void> {

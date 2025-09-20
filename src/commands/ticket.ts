@@ -36,7 +36,7 @@ export function registerTicketCommand(program: Command): void {
     .description('Ticket operations')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ stardate ticket show ST-123\n  $ stardate ticket assign ST-123 user:bob\n  $ stardate ticket label ST-123 +frontend -needs-spec\n  $ stardate ticket link --child ST-124 --parent EP-9\n  $ stardate ticket time log BUG-77 30 "triage and repro"\n  $ stardate ticket code start ST-123 --repo repo.web\n  $ stardate ticket list --type story --label frontend --json\n`,
+      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket show ST-123\n  $ houston ticket assign ST-123 user:bob\n  $ houston ticket label ST-123 +frontend -needs-spec\n  $ houston ticket link --child ST-124 --parent EP-9\n  $ houston ticket time log BUG-77 30 "triage and repro"\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket list --type story --label frontend --json\n`,
     );
 
   // Ticket creation
@@ -60,7 +60,7 @@ export function registerTicketCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket show ST-123\n  $ stardate ticket show ST-123 --edit\n  $ stardate ticket show ST-123 --edit --file ticket\n`,
+      `\nExamples:\n  $ houston ticket show ST-123\n  $ houston ticket show ST-123 --edit\n  $ houston ticket show ST-123 --edit --file ticket\n`,
     );
 
   // Time tracking (formerly bug log-time)
@@ -69,7 +69,7 @@ export function registerTicketCommand(program: Command): void {
     .description('Time tracking commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket time log BUG-77 45 "investigation"\n`,
+      `\nExamples:\n  $ houston ticket time log BUG-77 45 "investigation"\n`,
     );
   time
     .command('log')
@@ -103,7 +103,7 @@ export function registerTicketCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate ticket list\n  $ stardate ticket list --type story --label frontend --sort updated\n  $ stardate ticket list --assignee user:alice --limit 10 --json\nFilters:\n  --type <type...>         epic|story|subtask|bug\n  --status <status...>     workflow status values\n  --assignee <user...>     user ids e.g. user:alice\n  --repo <repo...>         repository ids\n  --sprint <sprint...>     sprint ids\n  --component <name...>    component names\n  --label <label...>       label values\n`,
+      `\nExamples:\n  $ houston ticket list\n  $ houston ticket list --type story --label frontend --sort updated\n  $ houston ticket list --assignee user:alice --limit 10 --json\nFilters:\n  --type <type...>         epic|story|subtask|bug\n  --status <status...>     workflow status values\n  --assignee <user...>     user ids e.g. user:alice\n  --repo <repo...>         repository ids\n  --sprint <sprint...>     sprint ids\n  --component <name...>    component names\n  --label <label...>       label values\n`,
     );
 }
 

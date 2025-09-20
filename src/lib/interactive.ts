@@ -34,9 +34,9 @@ const MULTI_THRESHOLD = 30;
 
 export function canPrompt(): boolean {
   return (
-    process.env.STARDATE_NO_INTERACTIVE !== '1' &&
+    process.env.HOUSTON_NO_INTERACTIVE !== '1' &&
     ((((process.stdin as any).isTTY && (process.stdout as any).isTTY) ||
-      process.env.STARDATE_FORCE_INTERACTIVE === '1'))
+      process.env.HOUSTON_FORCE_INTERACTIVE === '1'))
   );
 }
 

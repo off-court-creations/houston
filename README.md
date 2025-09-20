@@ -1,13 +1,13 @@
-# `@archway/stardate`
+# `@archway/houston`
 
 TypeScript implementation for the git-native ticketing workflow. The CLI exposes
-schema-aware commands (`stardate`) that underpin ticket mutation,
+schema-aware commands (`houston`) that underpin ticket mutation,
 backlog/sprint planning, and code-repo coordination.
 
 ## Development
 
 ```sh
-cd packages/stardate
+cd .
 npm install
 ```
 
@@ -32,7 +32,7 @@ This executes `scripts/emit-schemas.mjs` and rewrites every
 
 ## Running the CLI
 
-The compiled binary is exposed via `bin` as `stardate`. During
+The compiled binary is exposed via `bin` as `houston`. During
 development use `npm run dev -- <args>` to execute commands without building:
 
 ```sh
@@ -40,12 +40,12 @@ npm run dev -- check
 ```
 
 Once built (`npm run build`), invoke via `node dist/index.js` or install globally
-with `npm link` (or eventually `npm i -g @archway/stardate`).
+with `npm link` (or eventually `npm i -g @archway/houston`).
 
 Run the tracking repo validation locally with:
 
 ```sh
-stardate check
+houston check
 ```
 
 Use `--format json` to emit machine-readable results for custom CI wiring.
@@ -72,7 +72,7 @@ Use `--format json` to emit machine-readable results for custom CI wiring.
 - `user info [--id user:foo] [--json]` — inspect a user (prompts for selection when `--id` is omitted).
 - `component add [--id checkout --repos repo.checkout]` — add components to `taxonomies/components.yaml` and wire repos (`--interactive` by default when flagless).
 - `component list` — list known components.
-- `workspace new [dir]` — scaffold a new Stardate workspace (use `--no-git` to skip git init).
+- `workspace new [dir]` — scaffold a new Houston workspace (use `--no-git` to skip git init).
 - `workspace info` — high-level snapshot of the current workspace (`--json` supported).
 
 ## Workspace Insights
@@ -80,15 +80,15 @@ Use `--format json` to emit machine-readable results for custom CI wiring.
 Use `workspace info` and the `ticket`/`sprint`/`repo`/`backlog` groups to monitor the local tracking repository:
 
 ```sh
-stardate workspace info --json
-stardate ticket list --type story --label frontend
-stardate repo list
+houston workspace info --json
+houston ticket list --type story --label frontend
+houston repo list
 ```
 
-Run `stardate workspace new new-workspace` to initialize a fresh tracking repo scaffolded with the standard directory layout.
+Run `houston workspace new new-workspace` to initialize a fresh tracking repo scaffolded with the standard directory layout.
 
 ### Provider Tokens
 
 Remote branch/PR automation requires credentials. For GitHub, export a token via
-`STARDATE_GITHUB_TOKEN` (or `GITHUB_TOKEN`/`GH_TOKEN`). When absent, Stardate quietly
+`HOUSTON_GITHUB_TOKEN` (or `GITHUB_TOKEN`/`GH_TOKEN`). When absent, Houston quietly
 skips provider calls while still updating local metadata.

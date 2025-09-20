@@ -23,9 +23,9 @@ const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
 let tempDir: string;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-cli-phase4-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-cli-phase4-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
-  process.env.STARDATE_ACTOR = 'user:test';
+  process.env.HOUSTON_ACTOR = 'user:test';
 }
 
 function teardownWorkspace(): void {
@@ -66,7 +66,7 @@ describe('CLI Phase 4 commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'new',
       'story',
       '--title',
@@ -100,11 +100,11 @@ describe('CLI Phase 4 commands', () => {
     // Use existing fixture story
     const ticketId = 'ST-1234567890AB';
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'stardate', 'assign', ticketId, 'user:cara']);
-    await program.parseAsync(['node', 'stardate', 'status', ticketId, 'In Review']);
+    await program.parseAsync(['node', 'houston', 'assign', ticketId, 'user:cara']);
+    await program.parseAsync(['node', 'houston', 'status', ticketId, 'In Review']);
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'code',
       'start',
       ticketId,
@@ -125,7 +125,7 @@ describe('CLI Phase 4 commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'backlog',
       'plan',
       '--sprint',

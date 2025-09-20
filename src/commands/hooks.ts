@@ -13,10 +13,10 @@ interface HooksInstallOptions {
 export function registerHooksCommand(program: Command): void {
   const hooks = program
     .command('hooks')
-    .description('Manage git hooks for stardate')
+    .description('Manage git hooks for houston')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate hooks install\n  $ stardate hooks install --target ./.git --force\nNotes:\n  - Installs 'prepare-commit-msg' to inject a 'Ticket: <ID>' trailer.\n`,
+      `\nExamples:\n  $ houston hooks install\n  $ houston hooks install --target ./.git --force\nNotes:\n  - Installs 'prepare-commit-msg' to inject a 'Ticket: <ID>' trailer.\n`,
     );
 
   hooks
@@ -27,7 +27,7 @@ export function registerHooksCommand(program: Command): void {
     .action(async (options: HooksInstallOptions) => {
       await installHook(options);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate hooks install\n  $ stardate hooks install --target ./.git --force\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston hooks install\n  $ houston hooks install --target ./.git --force\n`);
 }
 
 async function installHook(options: HooksInstallOptions): Promise<void> {

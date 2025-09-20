@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   const program = new Command();
 
   program
-    .name('stardate')
+    .name('houston')
     .description('Git-native ticketing CLI')
     .configureHelp({
       sortSubcommands: true,
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate --help\n  $ stardate workspace info --json\n  $ stardate ticket new story --title "Checkout flow" --assignee user:alice --components web\n  $ stardate ticket code start ST-123 --repo repo.web\n  $ stardate sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ stardate backlog add ST-123 ST-124\n\nEnvironment:\n  STARDATE_LOG_LEVEL=debug|info|warn|error   Controls logging level\n  STARDATE_GITHUB_TOKEN                      Token for GitHub provider (or GITHUB_TOKEN/GH_TOKEN)\n  EDITOR / VISUAL                            Used by 'ticket show --edit'\n`,
+      `\nExamples:\n  $ houston --help\n  $ houston workspace info --json\n  $ houston ticket new story --title "Checkout flow" --assignee user:alice --components web\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston backlog add ST-123 ST-124\n\nEnvironment:\n  HOUSTON_LOG_LEVEL=debug|info|warn|error   Controls logging level\n  HOUSTON_GITHUB_TOKEN                      Token for GitHub provider (or GITHUB_TOKEN/GH_TOKEN)\n  EDITOR / VISUAL                            Used by 'ticket show --edit'\n`,
     )
     .option('-v, --verbose', 'enable verbose logging')
     .option('-q, --quiet', 'suppress non-error output')
@@ -43,16 +43,16 @@ async function main(): Promise<void> {
     .hook('preAction', (thisCommand) => {
       const opts = thisCommand.optsWithGlobals();
       if (opts.interactive === false) {
-        process.env.STARDATE_NO_INTERACTIVE = '1';
+        process.env.HOUSTON_NO_INTERACTIVE = '1';
       }
       const baseColor = Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined;
       setColorEnabled(!opts.noColor && baseColor);
       if (opts.verbose) {
-        process.env.STARDATE_LOG_LEVEL = 'debug';
+        process.env.HOUSTON_LOG_LEVEL = 'debug';
         logger.setLevel('debug');
         logger.debug('Verbose mode enabled');
       } else if (opts.quiet) {
-        process.env.STARDATE_LOG_LEVEL = 'warn';
+        process.env.HOUSTON_LOG_LEVEL = 'warn';
         logger.setLevel('warn');
       }
       if (opts.chdir) {

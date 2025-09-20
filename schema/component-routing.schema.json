@@ -62,7 +62,7 @@
     },
     "generated_by": {
       "type": "string",
-      "pattern": "^stardate@[^\\s]+$"
+      "pattern": "^houston@[^\\s]+$"
     }
   },
   "additionalProperties": false

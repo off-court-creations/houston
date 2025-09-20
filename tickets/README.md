@@ -7,4 +7,4 @@ Tickets are stored as versioned directories grouped by type:
 - `SUBTASK/SB-<ULID>/`
 - `BUG/BG-<ULID>/`
 
-Each ticket directory will contain `ticket.yaml`, `description.md`, and `history.ndjson` generated exclusively by the `stardate` CLI. Placeholder subdirectories exist to ensure the structure is tracked in Git.
+Each ticket directory will contain `ticket.yaml`, `description.md`, and `history.ndjson` generated exclusively by the `houston` CLI. Placeholder subdirectories exist to ensure the structure is tracked in Git.

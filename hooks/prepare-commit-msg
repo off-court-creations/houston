@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stardate prepare-commit-msg hook
+# Houston prepare-commit-msg hook
 # Adds `Ticket: <ID>` trailer when commit message references branch naming convention.
 
 case "$2" in

@@ -8,7 +8,7 @@ let tempDir: string | undefined;
 
 function createTempFile(): string {
   if (!tempDir) {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-history-test-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-history-test-'));
   }
   return path.join(tempDir, 'history.ndjson');
 }

@@ -11,7 +11,7 @@ const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
 let tempDir: string;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-workspace-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-workspace-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -49,7 +49,7 @@ describe('workspace command suite', () => {
     const program = buildProgram();
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'stardate', 'workspace', 'summary', '--json']);
+    await program.parseAsync(['node', 'houston', 'workspace', 'summary', '--json']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const output = logCapture.logs.join('\n');
@@ -65,7 +65,7 @@ describe('workspace command suite', () => {
     const program = buildProgram();
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'stardate', 'workspace', 'tickets', '--json', '--type', 'story']);
+    await program.parseAsync(['node', 'houston', 'workspace', 'tickets', '--json', '--type', 'story']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const payload = JSON.parse(logCapture.logs.join('\n')) as { tickets: Array<{ id: string; type: string }> };
@@ -77,7 +77,7 @@ describe('workspace command suite', () => {
     const program = buildProgram();
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'stardate', 'workspace', 'repos', '--json']);
+    await program.parseAsync(['node', 'houston', 'workspace', 'repos', '--json']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const payload = JSON.parse(logCapture.logs.join('\n')) as { repos: Array<{ id: string; ticketIds: string[] }> };
@@ -87,14 +87,14 @@ describe('workspace command suite', () => {
 
   it('creates a new workspace skeleton', async () => {
     const program = buildProgram();
-    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-create-'));
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-create-'));
     const targetDir = path.join(baseDir, 'new-workspace');
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(baseDir);
-    await program.parseAsync(['node', 'stardate', 'workspace', 'create', 'new-workspace', '--no-git']);
+    await program.parseAsync(['node', 'houston', 'workspace', 'create', 'new-workspace', '--no-git']);
     cwdSpy.mockRestore();
     logCapture.restore();
-    const configPath = path.join(targetDir, 'stardate.config.yaml');
+    const configPath = path.join(targetDir, 'houston.config.yaml');
     expect(fs.existsSync(configPath)).toBe(true);
     const config = YAML.parse(fs.readFileSync(configPath, 'utf8')) as { tracking?: { schemaDir?: string } };
     expect(config?.tracking?.schemaDir).toBe('schema');

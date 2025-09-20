@@ -18,7 +18,7 @@ function makeConfig(workspaceRoot: string): CliConfig {
     },
     metadata: {
       version: '0.1.0-test',
-      generator: 'stardate@0.1.0-test',
+      generator: 'houston@0.1.0-test',
     },
   };
 }

@@ -10,7 +10,7 @@ const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
 let tempDir: string;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-describe-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-describe-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -40,7 +40,7 @@ describe('describe command', () => {
         return true;
       }) as unknown as typeof process.stdout.write);
 
-    await program.parseAsync(['node', 'stardate', 'describe', 'ST-1234567890AB']);
+    await program.parseAsync(['node', 'houston', 'describe', 'ST-1234567890AB']);
 
     cwdSpy.mockRestore();
     writeSpy.mockRestore();

@@ -8,7 +8,7 @@ export function registerBugCommand(program: Command): void {
   const bug = program
     .command('bug')
     .description('Bug-specific utilities')
-    .addHelpText('after', `\nExamples:\n  $ stardate bug log-time BUG-77 30 "triage"\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston bug log-time BUG-77 30 "triage"\n`);
 
   bug
     .command('log-time')

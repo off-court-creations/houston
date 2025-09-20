@@ -11,7 +11,7 @@ const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
 let tempDir: string;
 
 function setupWorkspace(): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-sprint-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-sprint-'));
   fs.cpSync(FIXTURE_DIR, tempDir, { recursive: true });
 }
 
@@ -43,7 +43,7 @@ describe('sprint command', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     const sprintsRoot = path.join(tempDir, 'sprints');
     const before = new Set(fs.readdirSync(sprintsRoot));
-    await program.parseAsync(['node', 'stardate', 'sprint', 'new', '--name', 'Auto Sprint']);
+    await program.parseAsync(['node', 'houston', 'sprint', 'new', '--name', 'Auto Sprint']);
     cwdSpy.mockRestore();
 
     const createdId = fs
@@ -64,7 +64,7 @@ describe('sprint command', () => {
     const before = new Set(fs.readdirSync(sprintsRoot));
     await program.parseAsync([
       'node',
-      'stardate',
+      'houston',
       'sprint',
       'new',
       '--start',

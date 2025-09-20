@@ -18,7 +18,7 @@ export function registerComponentCommand(program: Command): void {
     .description('Manage components taxonomy')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate component add --id web --repos repo.web\n  $ stardate component add --interactive\n  $ stardate component list\n`,
+      `\nExamples:\n  $ houston component add --id web --repos repo.web\n  $ houston component add --interactive\n  $ houston component list\n`,
     );
 
   component
@@ -35,7 +35,7 @@ export function registerComponentCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate component add --id web --repos repo.web,repo.api\n  $ stardate component add --interactive\n`,
+      `\nExamples:\n  $ houston component add --id web --repos repo.web,repo.api\n  $ houston component add --interactive\n`,
     );
 
   component
@@ -57,7 +57,7 @@ export function registerComponentCommand(program: Command): void {
         console.log(componentId);
       }
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate component list\n  $ stardate component list --json\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston component list\n  $ houston component list --json\n`);
 }
 
 async function handleComponentAdd(opts: AddComponentOptions): Promise<void> {

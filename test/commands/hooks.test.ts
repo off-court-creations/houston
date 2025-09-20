@@ -13,12 +13,12 @@ function buildProgram(): Command {
 
 describe('hooks install', () => {
   it('installs prepare-commit-msg hook', async () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-hooks-'));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-hooks-'));
     const gitDir = path.join(tmp, '.git');
     fs.mkdirSync(path.join(gitDir, 'hooks'), { recursive: true });
 
     const program = buildProgram();
-    await program.parseAsync(['node', 'stardate', 'hooks', 'install', '--target', gitDir]);
+    await program.parseAsync(['node', 'houston', 'hooks', 'install', '--target', gitDir]);
 
     const hookPath = path.join(gitDir, 'hooks', 'prepare-commit-msg');
     expect(fs.existsSync(hookPath)).toBe(true);
@@ -27,11 +27,11 @@ describe('hooks install', () => {
 
     // attempting again without --force should fail
     await expect(
-      program.parseAsync(['node', 'stardate', 'hooks', 'install', '--target', gitDir]),
+      program.parseAsync(['node', 'houston', 'hooks', 'install', '--target', gitDir]),
     ).rejects.toThrow();
 
     // with --force overwrites
-    await program.parseAsync(['node', 'stardate', 'hooks', 'install', '--target', gitDir, '--force']);
+    await program.parseAsync(['node', 'houston', 'hooks', 'install', '--target', gitDir, '--force']);
 
     fs.rmSync(tmp, { recursive: true, force: true });
   });

@@ -8,7 +8,7 @@ export function ensureSignature<T extends Record<string, unknown>>(data: T, gene
   return data;
 }
 
-export function hasValidSignature(value: unknown, expectedPrefix = 'stardate@'): value is { generated_by: string } {
+export function hasValidSignature(value: unknown, expectedPrefix = 'houston@'): value is { generated_by: string } {
   if (!isPlainObject(value)) {
     return false;
   }

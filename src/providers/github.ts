@@ -93,19 +93,19 @@ export class GitHubProvider implements Provider {
       Authorization: `Bearer ${this.token}`,
       Accept: 'application/vnd.github+json',
       'Content-Type': 'application/json',
-      'User-Agent': 'archway-stardate-cli',
+      'User-Agent': 'archway-houston-cli',
     };
   }
 }
 
 export function hasGitHubToken(): boolean {
-  return Boolean(process.env.STARDATE_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN);
+  return Boolean(process.env.HOUSTON_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN);
 }
 
 function resolveToken(): string {
-  const token = process.env.STARDATE_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const token = process.env.HOUSTON_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (!token) {
-    throw new Error('GitHub provider requires STARDATE_GITHUB_TOKEN (or GITHUB_TOKEN/GH_TOKEN).');
+    throw new Error('GitHub provider requires HOUSTON_GITHUB_TOKEN (or GITHUB_TOKEN/GH_TOKEN).');
   }
   return token;
 }

@@ -27,9 +27,9 @@ export function registerConfigCommand(program: Command): void {
       }
 
       if (!resolution.config) {
-        logger.info(`stardate version: ${resolution.version}`);
+        logger.info(`houston version: ${resolution.version}`);
         logger.info('workspace: (not detected)');
-        logger.info('Run this command inside a Stardate workspace to inspect tracking paths.');
+        logger.info('Run this command inside a Houston workspace to inspect tracking paths.');
         return;
       }
 
@@ -44,6 +44,6 @@ export function registerConfigCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate config\n  $ stardate config --json\nNotes:\n  - Run inside a Stardate workspace to see resolved tracking paths.\n`,
+      `\nExamples:\n  $ houston config\n  $ houston config --json\nNotes:\n  - Run inside a Houston workspace to see resolved tracking paths.\n`,
     );
 }

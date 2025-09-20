@@ -24,13 +24,13 @@ function makeConfig(workspaceRoot: string): CliConfig {
     },
     metadata: {
       version: '0.1.0',
-      generator: 'stardate@0.1.0',
+      generator: 'houston@0.1.0',
     },
   };
 }
 
 function createWorkspaceCopy(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-workspace-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-workspace-'));
   fs.cpSync(fixtureWorkspace, dir, { recursive: true });
   tempWorkspace = dir;
   return dir;

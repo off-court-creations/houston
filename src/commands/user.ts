@@ -26,7 +26,7 @@ export function registerUserCommand(program: Command): void {
     .description('Manage workspace users')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate user add --id user:alice --name "Alice" --email alice@example.com\n  $ stardate user add --interactive\n  $ stardate user info --id user:alice\n`,
+      `\nExamples:\n  $ houston user add --id user:alice --name "Alice" --email alice@example.com\n  $ houston user add --interactive\n  $ houston user info --id user:alice\n`,
     );
 
   user
@@ -45,7 +45,7 @@ export function registerUserCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ stardate user add --id user:bob --name "Bob"\n  $ stardate user add --interactive\nNotes:\n  - When run interactively, prompts for id, name, email, and roles.\n`,
+      `\nExamples:\n  $ houston user add --id user:bob --name "Bob"\n  $ houston user add --interactive\nNotes:\n  - When run interactively, prompts for id, name, email, and roles.\n`,
     );
 
   user
@@ -56,7 +56,7 @@ export function registerUserCommand(program: Command): void {
     .action(async (opts: UserInfoOptions) => {
       await handleUserInfo(opts);
     })
-    .addHelpText('after', `\nExamples:\n  $ stardate user info --id user:alice\n  $ stardate user info --json --id user:bob\n`);
+    .addHelpText('after', `\nExamples:\n  $ houston user info --id user:alice\n  $ houston user info --json --id user:bob\n`);
 
   user
     .command('list')

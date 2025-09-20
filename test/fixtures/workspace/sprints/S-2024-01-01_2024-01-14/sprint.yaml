@@ -7,4 +7,4 @@ team_capacity:
   user:alice: 40h
   user:pm_bob: 10h
 burndown_source: ./scope.yaml
-generated_by: stardate@0.1.0
+generated_by: houston@0.1.0

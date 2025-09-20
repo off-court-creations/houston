@@ -8,7 +8,7 @@ let tempDir: string | undefined;
 
 function createTempDir(): string {
   if (!tempDir) {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stardate-yaml-test-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'houston-yaml-test-'));
   }
   return tempDir;
 }
