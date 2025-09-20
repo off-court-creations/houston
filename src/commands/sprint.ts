@@ -11,6 +11,11 @@ import {
   resolveSprintDir,
 } from '../services/sprint-store.js';
 import { loadTicket } from '../services/ticket-store.js';
+import { loadConfig as loadCliConfig } from '../config/config.js';
+import { buildWorkspaceAnalytics, type WorkspaceAnalytics, type SprintOverview, type SprintPhase } from '../services/workspace-analytics.js';
+import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
+import { formatTable, printOutput } from '../lib/printer.js';
+import { c } from '../lib/colors.js';
 
 interface SprintNewOptions {
   start?: string;
@@ -22,7 +27,11 @@ interface SprintNewOptions {
 export function registerSprintCommand(program: Command): void {
   const sprint = program
     .command('sprint')
-    .description('Sprint management commands');
+    .description('Sprint management commands')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ stardate sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n  $ stardate sprint list --status active\n`,
+    );
 
   sprint
     .command('new')
@@ -33,7 +42,11 @@ export function registerSprintCommand(program: Command): void {
     .option('--goal <goal>', 'sprint goal')
     .action(async (options: SprintNewOptions) => {
       await handleSprintNew(options);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate sprint new --name "Sprint 42"\n  $ stardate sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14 --goal "Ship checkout v2"\nNotes:\n  - If dates are omitted, defaults to today and +14 days.\n`,
+    );
 
   sprint
     .command('add')
@@ -42,7 +55,18 @@ export function registerSprintCommand(program: Command): void {
     .argument('<ticketIds...>')
     .action(async (sprintId: string, ticketIds: string[]) => {
       await handleSprintAdd(sprintId, ticketIds);
-    });
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n`);
+
+  sprint
+    .command('list')
+    .description('List sprints in the current workspace')
+    .option('-j, --json', 'output as JSON')
+    .option('-s, --status <status...>', 'filter by sprint status (active|upcoming|completed|unknown)')
+    .action(async (options: { json?: boolean; status?: ('active' | 'upcoming' | 'completed' | 'unknown')[] }) => {
+      await handleSprintList(options);
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate sprint list\n  $ stardate sprint list --status active completed\n`);
 }
 
 async function handleSprintNew(options: SprintNewOptions): Promise<void> {
@@ -59,7 +83,7 @@ async function handleSprintNew(options: SprintNewOptions): Promise<void> {
     generated_by: config.metadata.generator,
   });
   saveSprintScope(config, sprintId, emptyScope(config.metadata.generator));
-  console.log(`Created sprint ${sprintId}`);
+  console.log(c.ok(`Created sprint ${c.id(sprintId)}`));
 }
 
 function resolveSprintWindow(options: SprintNewOptions): { startDate: string; endDate: string } {
@@ -153,7 +177,7 @@ async function handleSprintAdd(sprintId: string, ticketIds: string[]): Promise<v
     }
   }
   saveSprintScope(config, sprintId, scope);
-  console.log(`Added ${ticketIds.length} ticket(s) to ${sprintId}`);
+  console.log(c.ok(`Added ${ticketIds.length} ticket(s) to ${c.id(sprintId)}`));
 }
 
 function uniquePush(list: string[] | undefined, id: string): string[] {
@@ -162,4 +186,68 @@ function uniquePush(list: string[] | undefined, id: string): string[] {
     next.push(id);
   }
   return next;
+}
+
+async function handleSprintList(options: { json?: boolean; status?: ('active' | 'upcoming' | 'completed' | 'unknown')[] }): Promise<void> {
+  const { analytics } = loadAnalytics();
+  const statuses = options.status?.map((value) => value.toLowerCase() as SprintPhase);
+  let sprints = analytics.sprints.slice();
+  if (statuses && statuses.length > 0) {
+    sprints = sprints.filter((sprint) => statuses.includes(sprint.status));
+  }
+
+  const payload = {
+    count: sprints.length,
+    sprints: sprints.map((sprint) => ({
+      id: sprint.id,
+      name: sprint.name,
+      status: sprint.status,
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      goal: sprint.goal,
+      totalScoped: sprint.totalScoped,
+      scope: {
+        epics: sprint.scope.epics.map((ticket) => ticket.id),
+        stories: sprint.scope.stories.map((ticket) => ticket.id),
+        subtasks: sprint.scope.subtasks.map((ticket) => ticket.id),
+        bugs: sprint.scope.bugs.map((ticket) => ticket.id),
+        missing: sprint.scope.missing,
+      },
+      path: sprint.path,
+      scopePath: sprint.scopePath,
+    })),
+  };
+
+  const lines: string[] = [];
+  if (sprints.length === 0) {
+    lines.push('No sprints found.');
+  } else {
+    const table = formatTable(sprints, [
+      { header: 'ID', value: (row) => row.id },
+      { header: 'Status', value: (row) => row.status },
+      { header: 'Start', value: (row) => row.startDate ?? '-' },
+      { header: 'End', value: (row) => row.endDate ?? '-' },
+      { header: 'Scoped', value: (row) => row.totalScoped.toString() },
+      { header: 'Goal', value: (row) => truncate(row.goal ?? '', 40) },
+    ]);
+    lines.push(...table);
+  }
+
+  printOutput(payload, lines, options);
+}
+
+function loadAnalytics(): {
+  analytics: WorkspaceAnalytics;
+} {
+  const config = loadCliConfig();
+  const inventory = collectWorkspaceInventory(config);
+  const analytics = buildWorkspaceAnalytics(inventory);
+  return { analytics };
+}
+
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 1)}…`;
 }

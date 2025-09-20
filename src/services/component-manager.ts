@@ -1,6 +1,6 @@
 import process from 'node:process';
 import type { CliConfig } from '../config/config.js';
-import { promptInput, promptMultiSelect } from '../lib/prompter.js';
+import { promptText, promptMultiSelect, canPrompt } from '../lib/interactive.js';
 import { loadComponents, addComponent } from './component-store.js';
 import { loadComponentRouting, setComponentRepos } from './component-routing-store.js';
 import { listRepos } from './repo-registry.js';
@@ -46,7 +46,7 @@ export async function promptComponentDetails(
 
   if (!componentId || allowEditId) {
     while (true) {
-      const value = await promptInput('Component id (slug)', {
+      const value = await promptText('Component id (slug)', {
         defaultValue: componentId || options.initialId,
         required: true,
         validate: (input) => {
@@ -100,7 +100,7 @@ export async function ensureComponentRegistered(
     return;
   }
 
-  if (interactive && ((process.stdin.isTTY && process.stdout.isTTY) || process.env.STARDATE_FORCE_INTERACTIVE === '1')) {
+  if (interactive && canPrompt()) {
     const routing = loadComponentRouting(config);
     const initialRepos = routing.routes[normalized] ?? [];
     const details = await promptComponentDetails(config, {

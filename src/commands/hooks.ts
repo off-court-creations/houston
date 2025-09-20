@@ -3,6 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+import { c } from '../lib/colors.js';
 
 interface HooksInstallOptions {
   force?: boolean;
@@ -12,7 +13,11 @@ interface HooksInstallOptions {
 export function registerHooksCommand(program: Command): void {
   const hooks = program
     .command('hooks')
-    .description('Manage git hooks for stardate');
+    .description('Manage git hooks for stardate')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate hooks install\n  $ stardate hooks install --target ./.git --force\nNotes:\n  - Installs 'prepare-commit-msg' to inject a 'Ticket: <ID>' trailer.\n`,
+    );
 
   hooks
     .command('install')
@@ -21,7 +26,8 @@ export function registerHooksCommand(program: Command): void {
     .option('--target <path>', 'explicit .git directory (defaults to auto-detect)')
     .action(async (options: HooksInstallOptions) => {
       await installHook(options);
-    });
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate hooks install\n  $ stardate hooks install --target ./.git --force\n`);
 }
 
 async function installHook(options: HooksInstallOptions): Promise<void> {
@@ -43,7 +49,7 @@ async function installHook(options: HooksInstallOptions): Promise<void> {
 
   const content = fs.readFileSync(source);
   fs.writeFileSync(destination, content, { mode: 0o755 });
-  console.log(`Installed prepare-commit-msg hook to ${destination}`);
+  console.log(c.ok(`Installed prepare-commit-msg hook to ${destination}`));
 }
 
 function findGitDir(start: string): string | undefined {

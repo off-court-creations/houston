@@ -3,7 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { loadConfig, type CliConfig } from '../config/config.js';
 import { generateTicketId } from '../lib/id.js';
-import { promptInput, promptMultiSelect, promptSelect } from '../lib/prompter.js';
+import { promptText, promptMultiSelect, promptSelect, canPrompt } from '../lib/interactive.js';
 import { loadBacklog, saveBacklog } from '../services/backlog-store.js';
 import { resolveTicketPaths } from '../services/path-resolver.js';
 import { collectWorkspaceInventory, type TicketInfo, type TicketType } from '../services/workspace-inventory.js';
@@ -13,6 +13,7 @@ import { loadComponents } from '../services/component-store.js';
 import { createTicket, type TicketRecord } from '../services/ticket-store.js';
 import { resolveActor, resolveTimestamp } from '../utils/runtime.js';
 import type { HistoryEvent } from '../lib/history.js';
+import { c } from '../lib/colors.js';
 
 interface NewOptions {
   interactive?: boolean;
@@ -58,7 +59,11 @@ export function registerNewCommand(program: Command): void {
     .option('-i, --interactive', 'prompt for required fields')
     .action(async (type: string, opts: NewOptions) => {
       await handleNewCommand(type as TicketRecord['type'], opts);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ stardate ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-123 --story-points 3\n  $ stardate ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ stardate ticket new story --interactive\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n`,
+    );
 }
 
 async function handleNewCommand(type: TicketRecord['type'], opts: NewOptions): Promise<void> {
@@ -73,8 +78,8 @@ async function handleNewCommand(type: TicketRecord['type'], opts: NewOptions): P
   let interactiveSession = Boolean(resolvedOpts.interactive);
 
   if (resolvedOpts.interactive || missing.length > 0) {
-    const canPrompt = (process.stdin.isTTY && process.stdout.isTTY) || process.env.STARDATE_FORCE_INTERACTIVE === '1';
-    if (!canPrompt) {
+    const ok = canPrompt();
+    if (!ok) {
       throw new Error(
         `Missing required options: ${missing.join(', ')}. Re-run with --interactive in a terminal or provide all flags.`,
       );
@@ -115,13 +120,13 @@ async function runInteractiveNewTicket(
 ): Promise<NewOptions> {
   const next: NewOptions = { ...opts };
 
-  const title = await promptInput('Title', {
+  const title = await promptText('Title', {
     defaultValue: opts.title,
     required: true,
   });
   next.title = title;
 
-  const summary = await promptInput('Summary (optional)', {
+  const summary = await promptText('Summary (optional)', {
     defaultValue: opts.summary ?? title,
     allowEmpty: true,
   });
@@ -153,7 +158,7 @@ async function runInteractiveNewTicket(
       : await promptForCustomList('Labels (comma separated, optional)', splitList(opts.labels), false);
   next.labels = labels.length > 0 ? labels.join(', ') : undefined;
 
-  const dueDateInput = await promptInput('Due date (YYYY-MM-DD, optional)', {
+  const dueDateInput = await promptText('Due date (YYYY-MM-DD, optional)', {
     defaultValue: opts.dueDate,
     allowEmpty: true,
     validate: (value) => {
@@ -215,14 +220,14 @@ async function runInteractiveNewTicket(
 
 async function promptForAssignee(users: string[], current?: string): Promise<string> {
   if (users.length === 0) {
-    const value = await promptInput('Assignee (user:id)', {
+    const value = await promptText('Assignee (user:id)', {
       defaultValue: current,
       required: true,
     });
     return value.trim();
   }
   const choices = users.map((user) => ({ label: user, value: user }));
-  const selection = await promptSelect('Assignee (choose number or type new user:id)', choices, {
+  const selection = await promptSelect('Assignee (choose and press Enter, or type a new user:id)', choices, {
     defaultValue: current ?? users[0],
     allowCustom: true,
   });
@@ -240,18 +245,17 @@ async function ensureAssigneeTracked(
     return;
   }
 
-  const canPrompt = (process.stdin.isTTY && process.stdout.isTTY) || process.env.STARDATE_FORCE_INTERACTIVE === '1';
-  const shouldPrompt = interactiveFlag && canPrompt;
+  const shouldPrompt = interactiveFlag && canPrompt();
 
   let name: string | undefined;
   let email: string | undefined;
   if (shouldPrompt) {
-    name = await promptInput('Assignee display name (for people/users.yaml)', {
+    name = await promptText('Assignee display name (for people/users.yaml)', {
       defaultValue: deriveDisplayName(userId),
       required: true,
       validate: (value) => (value.trim() === '' ? 'Name is required.' : null),
     });
-    email = await promptInput('Assignee email (optional)', {
+    email = await promptText('Assignee email (optional)', {
       defaultValue: '',
       allowEmpty: true,
     });
@@ -301,7 +305,7 @@ async function promptForParent(
 
 async function promptForStoryPoints(existing?: number): Promise<number> {
   while (true) {
-    const value = await promptInput('Story points', {
+    const value = await promptText('Story points', {
       defaultValue: existing !== undefined ? String(existing) : undefined,
       required: true,
       validate: (input) => {
@@ -331,7 +335,7 @@ function formatTicketChoice(ticket: TicketInfo): string {
 
 async function promptForCustomList(question: string, defaults: string[] = [], required: boolean): Promise<string[]> {
   while (true) {
-    const answer = await promptInput(question, {
+    const answer = await promptText(question, {
       defaultValue: defaults.join(', '),
       required,
       allowEmpty: !required,
@@ -483,5 +487,5 @@ async function finalizeTicketCreation(
     saveBacklog(config, backlog);
   }
 
-  console.log(`Created ${id} at ${path.relative(process.cwd(), resolveTicketPaths(config, id).ticketFile)}`);
+  console.log(c.ok(`Created ${c.id(id)} at ${path.relative(process.cwd(), resolveTicketPaths(config, id).ticketFile)}`));
 }

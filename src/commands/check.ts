@@ -33,5 +33,9 @@ export function registerCheckCommand(program: Command): void {
         logger.error(`- [${error.rule}] ${error.message}`);
       }
       process.exitCode = 1;
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate check\n  $ stardate check --format json\n  $ stardate check --file tickets/STORY/ST-123/ticket.yaml\n`,
+    );
 }

@@ -1,6 +1,7 @@
 import process from 'node:process';
+import { c } from './lib/colors.js';
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LEVELS: Record<LogLevel, number> = {
   debug: 10,
@@ -9,12 +10,13 @@ const LEVELS: Record<LogLevel, number> = {
   error: 40,
 };
 
-type Logger = {
+export type Logger = {
   debug: (message: string) => void;
   info: (message: string) => void;
   warn: (message: string) => void;
   error: (message: string) => void;
   isVerbose: () => boolean;
+  setLevel: (next: LogLevel) => void;
 };
 
 function resolveLevel(): LogLevel {
@@ -34,7 +36,7 @@ export function createLogger(): Logger {
   return {
     debug(message: string) {
       if (LEVELS[level] <= LEVELS.debug) {
-        process.stderr.write(`[debug] ${message}\n`);
+        process.stderr.write(`${c.dim('[debug]')} ${message}\n`);
       }
     },
     info(message: string) {
@@ -44,16 +46,17 @@ export function createLogger(): Logger {
     },
     warn(message: string) {
       if (LEVELS[level] <= LEVELS.warn) {
-        process.stderr.write(`[warn] ${message}\n`);
+        process.stderr.write(`${c.warn('[warn]')} ${message}\n`);
       }
     },
     error(message: string) {
-      process.stderr.write(`[error] ${message}\n`);
+      process.stderr.write(`${c.error('[error]')} ${message}\n`);
     },
     isVerbose() {
       return LEVELS[level] <= LEVELS.debug;
     },
+    setLevel(next: LogLevel) {
+      level = next;
+    },
   };
 }
-
-export type { Logger };

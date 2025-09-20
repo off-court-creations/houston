@@ -6,7 +6,7 @@ import { resolveTicketPaths } from '../services/path-resolver.js';
 import { readYamlFile } from '../lib/yaml.js';
 import YAML from 'yaml';
 
-interface DescribeOptions {
+export interface DescribeOptions {
   edit?: boolean;
   file?: 'ticket' | 'description';
 }
@@ -23,7 +23,7 @@ export function registerDescribeCommand(program: Command): void {
     });
 }
 
-async function handleDescribe(ticketId: string, options: DescribeOptions): Promise<void> {
+export async function handleDescribe(ticketId: string, options: DescribeOptions): Promise<void> {
   const config = loadConfig();
   const paths = resolveTicketPaths(config, ticketId);
   if (options.edit) {

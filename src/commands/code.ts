@@ -5,6 +5,7 @@ import { getRepo } from '../services/repo-registry.js';
 import { createProvider } from '../providers/index.js';
 import { loadTicket, saveTicket, type TicketRecord, type HistoryEventInput } from '../services/ticket-store.js';
 import { resolveActor, resolveTimestamp } from '../utils/runtime.js';
+import { c } from '../lib/colors.js';
 
 interface CodeStartOptions {
   repo: string[];
@@ -48,7 +49,11 @@ interface CodeRepoEntry {
 export function registerCodeCommand(program: Command): void {
   const code = program
     .command('code')
-    .description('Code integration helpers');
+    .description('Code integration helpers')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket code start ST-123 --repo repo.web\n  $ stardate ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ stardate ticket code open-pr ST-123 --repo repo.web --base main\n  $ stardate ticket code sync ST-123\nNotes:\n  - Provider integration requires credentials (e.g. STARDATE_GITHUB_TOKEN).\n`,
+    );
 
   code
     .command('start')
@@ -59,7 +64,11 @@ export function registerCodeCommand(program: Command): void {
     .option('--no-provider', 'skip remote provider integration')
     .action(async (ticketId: string, options: CodeStartOptions) => {
       await handleCodeStart(ticketId, options);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket code start ST-123 --repo repo.web\n  $ stardate ticket code start ST-123 --repo repo.web --repo repo.api\n  $ stardate ticket code start ST-123 --repo repo.web --branch feat/ST-123--checkout\n`,
+    );
 
   code
     .command('link')
@@ -72,7 +81,11 @@ export function registerCodeCommand(program: Command): void {
     .option('--base <branch>', 'pull request base branch')
     .action(async (ticketId: string, opts: CodeLinkOptions) => {
       await handleCodeLink(ticketId, opts);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ stardate ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout --pr 42\n`,
+    );
 
   code
     .command('open-pr')
@@ -86,7 +99,11 @@ export function registerCodeCommand(program: Command): void {
     .option('--no-provider', 'skip remote provider integration')
     .action(async (ticketId: string, opts: CodeOpenPrOptions) => {
       await handleOpenPr(ticketId, opts);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket code open-pr ST-123 --repo repo.web --base main\n  $ stardate ticket code open-pr ST-123 --repo repo.web --number 42 --url https://github.com/org/repo/pull/42\n`,
+    );
 
   code
     .command('sync')
@@ -95,7 +112,8 @@ export function registerCodeCommand(program: Command): void {
     .option('--repo <repoId>', 'limit sync to a single repo')
     .action(async (ticketId: string, opts: { repo?: string }) => {
       await handleCodeSync(ticketId, opts.repo);
-    });
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate ticket code sync ST-123\n  $ stardate ticket code sync ST-123 --repo repo.web\n`);
 }
 
 function collectValues(value: string, previous: string[]): string[] {
@@ -249,7 +267,7 @@ async function handleOpenPr(ticketId: string, opts: CodeOpenPrOptions): Promise<
       number: resolvedNumber,
     },
   });
-  console.log(`Recorded PR #${resolvedNumber} for ${ticketId}`);
+  console.log(c.ok(`Recorded PR #${resolvedNumber} for ${c.id(ticketId)}`));
 }
 
 async function handleCodeSync(ticketId: string, repoId?: string): Promise<void> {
@@ -277,7 +295,7 @@ async function handleCodeSync(ticketId: string, repoId?: string): Promise<void> 
       repo_id: repoId,
     },
   });
-  console.log(`Updated sync timestamp for ${ticketId}`);
+  console.log(c.ok(`Updated sync timestamp for ${c.id(ticketId)}`));
 }
 
 async function ensureRemoteBranch(config: CliConfig, repoId: string, branch: string): Promise<void> {

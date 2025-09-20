@@ -5,6 +5,7 @@ import process from 'node:process';
 import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import { formatKeyValues, formatTable, printOutput } from '../lib/printer.js';
+import { c } from '../lib/colors.js';
 import {
   buildWorkspaceAnalytics,
   SprintOverview,
@@ -13,6 +14,7 @@ import {
   WorkspaceAnalytics,
 } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory, TicketType } from '../services/workspace-inventory.js';
+import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, spinner as uiSpinner } from '../lib/interactive.js';
 
 interface JsonOption {
   json?: boolean;
@@ -41,6 +43,7 @@ interface BacklogOptions extends JsonOption {
 interface CreateWorkspaceOptions {
   force?: boolean;
   git?: boolean;
+  interactive?: boolean;
 }
 
 const WORKSPACE_GENERATOR = 'stardate@workspace-create';
@@ -107,15 +110,28 @@ const GITKEEP_PATHS = [
 ];
 
 export function registerWorkspaceCommand(program: Command): void {
-  const workspace = program.command('workspace').description('Inspect workspace state');
+  const workspace = program
+    .command('workspace')
+    .description('Inspect workspace state')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate workspace info\n  $ stardate workspace info --json\n  $ stardate workspace new my-workspace --no-git\n  $ stardate workspace new --interactive\n`,
+    );
 
   workspace
-    .command('create')
+    .command('new')
     .description('Scaffold a new Stardate workspace')
     .argument('[directory]', 'target directory (defaults to current directory)', '.')
     .option('--force', 'allow creation in a non-empty directory')
     .option('--no-git', 'skip git initialization')
+    .option('-i, --interactive', 'run guided setup even when arguments are provided')
+    .option('--no-interactive', 'run non-interactively (bypass prompts)')
     .action((directory: string, options: CreateWorkspaceOptions) => {
+      // Run wizard by default when in a TTY, unless explicitly disabled.
+      const shouldInteractive = options.interactive !== false && canInteractive();
+      if (shouldInteractive) {
+        return runWorkspaceNewInteractive(directory, options);
+      }
       const targetDir = path.resolve(process.cwd(), directory ?? '.');
       ensureDirectory(targetDir);
       if (!options.force && hasMeaningfulEntries(targetDir)) {
@@ -125,11 +141,15 @@ export function registerWorkspaceCommand(program: Command): void {
       if (options.git !== false) {
         initGitRepository(targetDir);
       }
-      console.log(`Initialized Stardate workspace at ${targetDir}`);
-    });
+      console.log(c.ok(`Initialized Stardate workspace at ${targetDir}`));
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate workspace new\n  $ stardate workspace new ./tracking --no-git\n  $ stardate workspace new ./tracking --force\n  $ stardate workspace new ./tracking --no-interactive --force\nNotes:\n  - Creates a directory structure with schema, tickets, backlog, sprints, repos, people, taxonomies.\n  - Use --force to overwrite existing files.\n  - Use --no-interactive to bypass the wizard in TTY contexts.\n`,
+    );
 
   workspace
-    .command('summary')
+    .command('info')
     .description('Show high-level workspace snapshot')
     .option('-j, --json', 'output as JSON')
     .action((options: JsonOption) => {
@@ -175,14 +195,14 @@ export function registerWorkspaceCommand(program: Command): void {
       lines.push(`Tracking  : ${config.tracking.root}`);
       lines.push(`Schema    : ${config.tracking.schemaDir}`);
       lines.push('');
-      lines.push('Tickets by type:');
+      lines.push(c.heading('Tickets by type:'));
       lines.push(
         ...formatKeyValues(
           Object.entries(analytics.summary.ticketTypeCounts).map(([key, value]) => [key, value.toString()]),
         ).map(indentLine),
       );
       if (Object.keys(analytics.summary.ticketStatusCounts).length > 0) {
-        lines.push('Tickets by status:');
+        lines.push(c.heading('Tickets by status:'));
         lines.push(
           ...formatKeyValues(
             Object.entries(analytics.summary.ticketStatusCounts).map(([key, value]) => [key, value.toString()]),
@@ -205,230 +225,26 @@ export function registerWorkspaceCommand(program: Command): void {
       if (activeSprints.length || upcomingSprints.length || completedSprints.length) {
         lines.push('');
         if (activeSprints.length) {
-        lines.push('Active sprints:');
+        lines.push(c.heading('Active sprints:'));
         lines.push(...activeSprints.map((sprint) => indentLine(renderSprintLine(sprint))));
       }
       if (upcomingSprints.length) {
-        lines.push('Upcoming sprints:');
+        lines.push(c.heading('Upcoming sprints:'));
         lines.push(...upcomingSprints.map((sprint) => indentLine(renderSprintLine(sprint))));
         }
         if (completedSprints.length) {
-          lines.push('Recent completed sprints:');
+          lines.push(c.heading('Recent completed sprints:'));
           const recent = completedSprints.slice(-3);
           lines.push(...recent.map((sprint) => indentLine(renderSprintLine(sprint))));
         }
       }
 
       printOutput(payload, lines, options);
-    });
-
-  workspace
-    .command('tickets')
-    .description('List tickets in the current workspace')
-    .option('-j, --json', 'output as JSON')
-    .option('-t, --type <type...>', 'filter by ticket type (epic|story|subtask|bug)')
-    .option('-s, --status <status...>', 'filter by ticket status')
-    .option('-a, --assignee <assignee...>', 'filter by assignee id')
-    .option('-r, --repo <repo...>', 'filter by repository id referenced by tickets')
-    .option('--sprint <sprint...>', 'filter by sprint id')
-    .option('-c, --component <component...>', 'filter by component name')
-    .option('-l, --label <label...>', 'filter by label')
-    .option('--sort <field>', 'sort field (id|status|assignee|updated)', 'id')
-    .option('--limit <count>', 'limit number of tickets returned', parsePositiveInt)
-    .action((options: TicketListOptions) => {
-      const { analytics } = loadAnalytics();
-      const filters = normalizeTicketFilters(options, analytics);
-      let tickets = analytics.tickets.slice();
-      tickets = applyTicketFilters(tickets, filters);
-      tickets = sortTickets(tickets, filters.sort);
-      if (filters.limit !== undefined) {
-        tickets = tickets.slice(0, filters.limit);
-      }
-
-      const payload = {
-        count: tickets.length,
-        tickets: tickets.map((ticket) => ({
-          id: ticket.id,
-          type: ticket.type,
-          status: ticket.status,
-          assignee: ticket.assignee,
-          components: ticket.components,
-          labels: ticket.labels,
-          sprintId: ticket.sprintId,
-          repoIds: ticket.repoIds,
-          summary: ticket.summary ?? ticket.title ?? '',
-          path: ticket.path,
-        })),
-      };
-
-      const lines: string[] = [];
-      if (tickets.length === 0) {
-        lines.push('No tickets matched the provided filters.');
-      } else {
-        const table = formatTable(tickets, [
-          { header: 'ID', value: (row) => row.id },
-          { header: 'Type', value: (row) => row.type },
-          { header: 'Status', value: (row) => row.status ?? '-' },
-          { header: 'Assignee', value: (row) => row.assignee ?? '-' },
-          { header: 'Sprint', value: (row) => row.sprintId ?? '-' },
-          { header: 'Repos', value: (row) => (row.repoIds.length ? row.repoIds.join(',') : '-') },
-          { header: 'Summary', value: (row) => truncate(row.summary ?? row.title ?? '', 40) },
-        ]);
-        lines.push(...table);
-      }
-
-      printOutput(payload, lines, options);
-    });
-
-  workspace
-    .command('sprints')
-    .description('Show sprint shells and scope details')
-    .option('-j, --json', 'output as JSON')
-    .option('-s, --status <status...>', 'filter by sprint status (active|upcoming|completed|unknown)')
-    .action((options: SprintListOptions) => {
-      const { analytics } = loadAnalytics();
-      const statuses = options.status?.map((value) => value.toLowerCase() as SprintPhase);
-      let sprints = analytics.sprints.slice();
-      if (statuses && statuses.length > 0) {
-        sprints = sprints.filter((sprint) => statuses.includes(sprint.status));
-      }
-
-      const payload = {
-        count: sprints.length,
-        sprints: sprints.map((sprint) => ({
-          id: sprint.id,
-          name: sprint.name,
-          status: sprint.status,
-          startDate: sprint.startDate,
-          endDate: sprint.endDate,
-          goal: sprint.goal,
-          totalScoped: sprint.totalScoped,
-          scope: {
-            epics: sprint.scope.epics.map((ticket) => ticket.id),
-            stories: sprint.scope.stories.map((ticket) => ticket.id),
-            subtasks: sprint.scope.subtasks.map((ticket) => ticket.id),
-            bugs: sprint.scope.bugs.map((ticket) => ticket.id),
-            missing: sprint.scope.missing,
-          },
-          path: sprint.path,
-          scopePath: sprint.scopePath,
-        })),
-      };
-
-      const lines: string[] = [];
-      if (sprints.length === 0) {
-        lines.push('No sprints found.');
-      } else {
-        const table = formatTable(sprints, [
-          { header: 'ID', value: (row) => row.id },
-          { header: 'Status', value: (row) => row.status },
-          { header: 'Start', value: (row) => row.startDate ?? '-' },
-          { header: 'End', value: (row) => row.endDate ?? '-' },
-          { header: 'Scoped', value: (row) => row.totalScoped.toString() },
-          { header: 'Goal', value: (row) => truncate(row.goal ?? '', 40) },
-        ]);
-        lines.push(...table);
-        for (const sprint of sprints) {
-          if (sprint.scope.missing.length) {
-            lines.push('');
-            lines.push(`${sprint.id}: missing tickets -> ${sprint.scope.missing.join(', ')}`);
-          }
-        }
-      }
-
-      printOutput(payload, lines, options);
-    });
-
-  workspace
-    .command('repos')
-    .description('List configured repositories and ticket links')
-    .option('-j, --json', 'output as JSON')
-    .action((options: JsonOption) => {
-      const { analytics } = loadAnalytics();
-      const payload = {
-        repos: analytics.repoUsage.map((entry) => ({
-          id: entry.config.id,
-          provider: entry.config.provider,
-          remote: entry.config.remote,
-          ticketIds: entry.tickets.map((ticket) => ticket.id),
-        })),
-        unknownRepoTickets: analytics.unknownRepoTickets.map((ticket) => ({
-          id: ticket.id,
-          repoIds: ticket.repoIds,
-        })),
-      };
-
-      const lines: string[] = [];
-      if (analytics.repoUsage.length === 0) {
-        lines.push('No repos configured.');
-      } else {
-        const table = formatTable(analytics.repoUsage, [
-          { header: 'Repo ID', value: (row) => row.config.id },
-          { header: 'Provider', value: (row) => row.config.provider },
-          { header: 'Remote', value: (row) => row.config.remote },
-          { header: 'Tickets', value: (row) => (row.tickets.length ? row.tickets.map((ticket) => ticket.id).join(',') : '-') },
-        ]);
-        lines.push(...table);
-      }
-      if (analytics.unknownRepoTickets.length) {
-        lines.push('');
-        lines.push(
-          `Tickets referencing unknown repos: ${analytics.unknownRepoTickets
-            .map((ticket) => `${ticket.id}(${ticket.repoIds.join(',')})`)
-            .join(', ')}`,
-        );
-      }
-
-      printOutput(payload, lines, options);
-    });
-
-  workspace
-    .command('backlog')
-    .description('Display backlog and next sprint queues')
-    .option('-j, --json', 'output as JSON')
-    .option('--include-missing', 'show ticket ids that are referenced but unavailable')
-    .action((options: BacklogOptions) => {
-      const { analytics } = loadAnalytics();
-      const payload = {
-        backlog: {
-          path: analytics.backlog.path,
-          tickets: analytics.backlog.tickets.map(toTicketStub),
-          missing: analytics.backlog.missing,
-        },
-        nextSprint: {
-          path: analytics.nextSprint.path,
-          tickets: analytics.nextSprint.tickets.map(toTicketStub),
-          missing: analytics.nextSprint.missing,
-        },
-      };
-
-      const lines: string[] = [];
-      lines.push(`Backlog (${analytics.backlog.path})`);
-      if (analytics.backlog.tickets.length === 0) {
-        lines.push(indentLine('No backlog items.'));
-      } else {
-        analytics.backlog.tickets.forEach((ticket, index) => {
-          lines.push(indentLine(`${index + 1}. ${renderTicketLine(ticket)}`));
-        });
-      }
-      if (options.includeMissing && analytics.backlog.missing.length) {
-        lines.push(indentLine(`Missing: ${analytics.backlog.missing.join(', ')}`));
-      }
-      lines.push('');
-      lines.push(`Next Sprint Candidates (${analytics.nextSprint.path})`);
-      if (analytics.nextSprint.tickets.length === 0) {
-        lines.push(indentLine('No next sprint candidates.'));
-      } else {
-        analytics.nextSprint.tickets.forEach((ticket, index) => {
-          lines.push(indentLine(`${index + 1}. ${renderTicketLine(ticket)}`));
-        });
-      }
-      if (options.includeMissing && analytics.nextSprint.missing.length) {
-        lines.push(indentLine(`Missing: ${analytics.nextSprint.missing.join(', ')}`));
-      }
-
-      printOutput(payload, lines, options);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate workspace info\n  $ stardate workspace info --json\n`,
+    );
 }
 
 function ensureDirectory(targetDir: string): void {
@@ -511,6 +327,39 @@ function initGitRepository(targetDir: string): void {
   }
 }
 
+async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWorkspaceOptions = {}): Promise<void> {
+  await uiIntro('Create Stardate Workspace');
+  const directory = await uiText('Directory', { defaultValue: initialDir ?? '.', required: true });
+  const targetDir = path.resolve(process.cwd(), directory ?? '.');
+  const existsAndHasFiles = hasMeaningfulEntries(targetDir);
+  let allowOverwrite = Boolean(options.force);
+  if (existsAndHasFiles && !allowOverwrite) {
+    allowOverwrite = await uiConfirm(`Directory ${targetDir} is not empty. Overwrite files?`, false);
+    if (!allowOverwrite) {
+      await uiOutro('Aborted');
+      return;
+    }
+  }
+  let initGit = options.git !== false;
+  if (options.git === undefined) {
+    initGit = await uiConfirm('Initialize git?', true);
+  }
+  const sp = uiSpinner();
+  await sp.start('Scaffolding workspace...');
+  try {
+    ensureDirectory(targetDir);
+    scaffoldWorkspace(targetDir, allowOverwrite || existsAndHasFiles);
+    if (initGit) {
+      initGitRepository(targetDir);
+    }
+    sp.stop('Workspace created');
+    await uiOutro(`Initialized at ${targetDir}`);
+  } catch (error) {
+    sp.stopWithError('Failed to create workspace');
+    throw error;
+  }
+}
+
 function loadAnalytics(): {
   config: ReturnType<typeof loadConfig>;
   analytics: WorkspaceAnalytics;
@@ -528,14 +377,16 @@ function indentLine(text: string): string {
 function renderSprintLine(sprint: SprintOverview): string {
   const label = formatSprintPretty(sprint);
   const status = capitalize(sprint.status);
-  return `${sprint.id} — ${label} [${status}]`;
+  return `${c.id(sprint.id)} — ${label} [${c.status(status)}]`;
 }
 
 function renderTicketLine(ticket: TicketOverview): string {
   const status = ticket.status ? `[${ticket.status}]` : '';
   const assignee = ticket.assignee ? `@${ticket.assignee}` : '';
   const summary = ticket.summary ?? ticket.title ?? '';
-  return `${ticket.id} ${status} ${assignee} ${summary}`.replace(/\s+/g, ' ').trim();
+  const coloredStatus = ticket.status ? `[${c.status(ticket.status)}]` : '';
+  const coloredAssignee = ticket.assignee ? c.dim(`@${ticket.assignee}`) : '';
+  return `${c.id(ticket.id)} ${coloredStatus} ${coloredAssignee} ${summary}`.replace(/\s+/g, ' ').trim();
 }
 
 function toTicketStub(ticket: TicketOverview): {

@@ -3,6 +3,8 @@ import { loadConfig } from '../config/config.js';
 import { loadComponents } from '../services/component-store.js';
 import { normalizeComponentId, promptComponentDetails, registerComponent } from '../services/component-manager.js';
 import { loadComponentRouting } from '../services/component-routing-store.js';
+import { c } from '../lib/colors.js';
+import { canPrompt } from '../lib/interactive.js';
 
 interface AddComponentOptions {
   interactive?: boolean;
@@ -11,7 +13,13 @@ interface AddComponentOptions {
 }
 
 export function registerComponentCommand(program: Command): void {
-  const component = program.command('component').description('Manage components taxonomy');
+  const component = program
+    .command('component')
+    .description('Manage components taxonomy')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate component add --id web --repos repo.web\n  $ stardate component add --interactive\n  $ stardate component list\n`,
+    );
 
   component
     .command('add')
@@ -24,7 +32,11 @@ export function registerComponentCommand(program: Command): void {
         opts.interactive = true;
       }
       await handleComponentAdd(opts);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate component add --id web --repos repo.web,repo.api\n  $ stardate component add --interactive\n`,
+    );
 
   component
     .command('list')
@@ -44,12 +56,16 @@ export function registerComponentCommand(program: Command): void {
       for (const componentId of components) {
         console.log(componentId);
       }
-    });
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate component list\n  $ stardate component list --json\n`);
 }
 
 async function handleComponentAdd(opts: AddComponentOptions): Promise<void> {
   const config = loadConfig();
   const interactive = Boolean(opts.interactive || !opts.id);
+  if (interactive && !canPrompt()) {
+    throw new Error('Missing required options: --id. Re-run with --interactive in a terminal or provide all flags.');
+  }
 
   if (interactive) {
     const routing = loadComponentRouting(config);
@@ -62,7 +78,7 @@ async function handleComponentAdd(opts: AddComponentOptions): Promise<void> {
       initialRepos,
     });
     registerComponent(config, details);
-    console.log(`Recorded ${details.id} in taxonomies/components.yaml`);
+    console.log(c.ok(`Recorded ${c.id(details.id)} in taxonomies/components.yaml`));
     return;
   }
 
@@ -73,7 +89,7 @@ async function handleComponentAdd(opts: AddComponentOptions): Promise<void> {
   const componentId = normalizeComponentId(opts.id);
   const repoIds = splitList(opts.repos);
   registerComponent(config, { id: componentId, repos: repoIds });
-  console.log(`Recorded ${componentId} in taxonomies/components.yaml`);
+  console.log(c.ok(`Recorded ${c.id(componentId)} in taxonomies/components.yaml`));
 }
 
 function splitList(value?: string): string[] {

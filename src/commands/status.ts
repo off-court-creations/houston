@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import { loadTicket, saveTicket } from '../services/ticket-store.js';
 import { resolveActor } from '../utils/runtime.js';
+import { c } from '../lib/colors.js';
 
 export function registerStatusCommand(program: Command): void {
   program
@@ -11,7 +12,8 @@ export function registerStatusCommand(program: Command): void {
     .argument('<status>')
     .action(async (ticketId: string, status: string) => {
       await handleStatus(ticketId, status);
-    });
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate ticket status ST-123 "In Review"\n`);
 }
 
 async function handleStatus(ticketId: string, status: string): Promise<void> {
@@ -28,5 +30,5 @@ async function handleStatus(ticketId: string, status: string): Promise<void> {
       to: status,
     },
   });
-  console.log(`Updated status for ${ticketId} -> ${status}`);
+  console.log(`Updated status for ${c.id(ticketId)} -> ${c.status(status)}`);
 }

@@ -52,36 +52,40 @@ Use `--format json` to emit machine-readable results for custom CI wiring.
 
 ## Available Commands
 
-- `new <type>` — create epics/stories/subtasks/bugs with deterministic scaffolding (add `--interactive` or omit flags to answer prompts in-terminal, including creating new assignees/components on the fly).
-- `describe <id>` — print ticket metadata or open the backing files in `$EDITOR`.
-- `assign <id> <user>` — change assignee with history audit.
-- `status <id> <status>` — mutate ticket workflow status.
-- `label <id> [+foo] [-bar]` — add/remove labels using `+`/`-` modifiers.
-- `link --child <id> --parent <id>` — build Epic → Story / Story → Subtask relationships.
-- `bug log-time <id> <minutes> [note]` — append time tracking entries to bug tickets.
+- `ticket new <type>` — create epics/stories/subtasks/bugs with deterministic scaffolding (add `--interactive` or omit flags to answer prompts in-terminal, including creating new assignees/components on the fly).
+- `ticket show <id>` — print ticket metadata or open the backing files in `$EDITOR`.
+- `ticket assign <id> <user>` — change assignee with history audit.
+- `ticket status <id> <status>` — mutate ticket workflow status.
+- `ticket label <id> [+foo] [-bar]` — add/remove labels using `+`/`-` modifiers.
+- `ticket link --child <id> --parent <id>` — build Epic → Story / Story → Subtask relationships.
+- `ticket time log <id> <minutes> [note]` — append time tracking entries to bug tickets.
+- `ticket code start <id> --repo <repo> [--branch]` plus `ticket code link|open-pr|sync` — manage branch/PR metadata on tickets (uses provider APIs when configured).
+- `ticket list [filters]` — list tickets (`--json` supported; filters: `--type`, `--status`, `--assignee`, `--repo`, `--sprint`, `--component`, `--label`, `--sort`, `--limit`).
 - `backlog add <ids...>` / `backlog plan --sprint <id> [--take N]` — manage backlog ordering and sprint scope.
-- `sprint new [--start YYYY-MM-DD] [--end YYYY-MM-DD] --name` & `sprint add <id> <tickets...>` — bootstrap sprint shells (defaults to today → +14 days; IDs include a slugged name + short token) and scope membership.
-- `code start <id> --repo <repo> [--branch]` plus `code link/open-pr/sync` — manage branch/PR metadata on tickets (uses provider APIs when configured).
+- `backlog show` — display backlog and next sprint candidates.
+- `sprint new [--start YYYY-MM-DD] [--end YYYY-MM-DD] --name` & `sprint add <id> <tickets...>` — bootstrap sprint shells and scope membership.
+- `sprint list [--status active|upcoming|completed|unknown]` — list sprint shells and scope counts.
+- `repo list` — list configured repositories and referenced tickets.
 - `check` — validate workspace files against schemas, transitions, and guardrails.
 - `hooks install` — install the `prepare-commit-msg` hook that adds `Ticket: <ID>` trailers.
 - `user add [--id user:foo --name "Foo"]` — add or update entries in `people/users.yaml` (supports `--interactive`; default prompts when no flags given).
 - `user info [--id user:foo] [--json]` — inspect a user (prompts for selection when `--id` is omitted).
 - `component add [--id checkout --repos repo.checkout]` — add components to `taxonomies/components.yaml` and wire repos (`--interactive` by default when flagless).
 - `component list` — list known components.
-- `workspace create [dir]` — scaffold a new Stardate workspace (use `--no-git` to skip git init).
-- `workspace summary|tickets|sprints|repos|backlog` — inspect workspace state from the CLI (supports `--json`).
+- `workspace new [dir]` — scaffold a new Stardate workspace (use `--no-git` to skip git init).
+- `workspace info` — high-level snapshot of the current workspace (`--json` supported).
 
 ## Workspace Insights
 
-Use the `workspace` command group to monitor the local tracking repository:
+Use `workspace info` and the `ticket`/`sprint`/`repo`/`backlog` groups to monitor the local tracking repository:
 
 ```sh
-stardate workspace summary --json
-stardate workspace tickets --type story --label frontend
-stardate workspace repos
+stardate workspace info --json
+stardate ticket list --type story --label frontend
+stardate repo list
 ```
 
-Run `stardate workspace create new-workspace` to initialize a fresh tracking repo scaffolded with the standard directory layout.
+Run `stardate workspace new new-workspace` to initialize a fresh tracking repo scaffolded with the standard directory layout.
 
 ### Provider Tokens
 

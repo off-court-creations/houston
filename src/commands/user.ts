@@ -3,9 +3,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { Command } from 'commander';
 import { loadConfig, type CliConfig } from '../config/config.js';
-import { promptInput, promptMultiSelect } from '../lib/prompter.js';
-import { promptSelect } from '../lib/prompter.js';
+import { promptText, promptMultiSelect, promptSelect, promptConfirm, canPrompt as canInteractive } from '../lib/interactive.js';
 import { loadPeople, upsertPerson, hasPerson, type PersonRecord } from '../services/people-store.js';
+import { c } from '../lib/colors.js';
 
 interface AddUserOptions {
   interactive?: boolean;
@@ -21,7 +21,13 @@ interface UserInfoOptions {
 }
 
 export function registerUserCommand(program: Command): void {
-  const user = program.command('user').description('Manage workspace users');
+  const user = program
+    .command('user')
+    .description('Manage workspace users')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate user add --id user:alice --name "Alice" --email alice@example.com\n  $ stardate user add --interactive\n  $ stardate user info --id user:alice\n`,
+    );
 
   user
     .command('add')
@@ -36,7 +42,11 @@ export function registerUserCommand(program: Command): void {
         opts.interactive = true;
       }
       await handleAddUser(opts);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate user add --id user:bob --name "Bob"\n  $ stardate user add --interactive\nNotes:\n  - When run interactively, prompts for id, name, email, and roles.\n`,
+    );
 
   user
     .command('info')
@@ -45,6 +55,14 @@ export function registerUserCommand(program: Command): void {
     .option('-j, --json', 'output as JSON')
     .action(async (opts: UserInfoOptions) => {
       await handleUserInfo(opts);
+    })
+    .addHelpText('after', `\nExamples:\n  $ stardate user info --id user:alice\n  $ stardate user info --json --id user:bob\n`);
+
+  user
+    .command('list')
+    .description('List users from people/users.yaml')
+    .action(async () => {
+      await handleUserList();
     });
 }
 
@@ -53,12 +71,22 @@ async function handleAddUser(opts: AddUserOptions): Promise<void> {
   let resolved = { ...opts };
   const missing = collectMissingUserFields(resolved);
 
-  const requiresPrompt = resolved.interactive || missing.length > 0;
-  if (requiresPrompt) {
-    const canPrompt = (process.stdin.isTTY && process.stdout.isTTY) || process.env.STARDATE_FORCE_INTERACTIVE === '1';
-    if (!canPrompt) {
-      throw new Error(`Missing required options: ${missing.join(', ')}. Re-run with --interactive in a terminal.`);
-    }
+  let interactiveSession = Boolean(resolved.interactive || missing.length > 0);
+  const okPrompt = canInteractive();
+
+  if (interactiveSession && !okPrompt) {
+    throw new Error(`Missing required options: ${missing.join(', ')}. Re-run with --interactive in a terminal.`);
+  }
+
+  // Helper to persist a user and print status + list
+  const saveAndShow = (record: PersonRecord): void => {
+    upsertPerson(config, record);
+    console.log(c.ok(`Recorded ${c.id(record.id)} in ${relativePeoplePath(config)}`));
+    printAllUsers(config);
+  };
+
+  // First entry: either from flags or from interactive prompts
+  if (interactiveSession) {
     resolved = await runInteractiveAddUser(resolved, config);
   }
 
@@ -67,19 +95,38 @@ async function handleAddUser(opts: AddUserOptions): Promise<void> {
     throw new Error(`Missing required options: ${remainingMissing.join(', ')}`);
   }
 
-  const person: PersonRecord = {
+  const firstPerson: PersonRecord = {
     id: resolved.id!,
     name: resolved.name?.trim() || undefined,
     email: resolved.email?.trim() || undefined,
     roles: splitList(resolved.roles),
   };
-  if (person.roles?.length === 0) {
-    delete person.roles;
+  if (firstPerson.roles?.length === 0) {
+    delete firstPerson.roles;
   }
 
-  upsertPerson(config, person);
+  saveAndShow(firstPerson);
 
-  console.log(`Recorded ${person.id} in ${relativePeoplePath(config)}`);
+  // If interactive, offer to add more users in a loop
+  if (interactiveSession && okPrompt) {
+    while (true) {
+      const again = await promptConfirm('Add another user?', false);
+      if (!again) {
+        break;
+      }
+      const next = await runInteractiveAddUser({}, config);
+      const person: PersonRecord = {
+        id: next.id!,
+        name: next.name?.trim() || undefined,
+        email: next.email?.trim() || undefined,
+        roles: splitList(next.roles),
+      };
+      if (person.roles?.length === 0) {
+        delete person.roles;
+      }
+      saveAndShow(person);
+    }
+  }
 }
 
 function collectMissingUserFields(opts: AddUserOptions): string[] {
@@ -98,7 +145,7 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
   const existingIds = new Set(people.map((person) => person.id));
   const next: AddUserOptions = { ...opts };
 
-  const id = await promptInput('User id (e.g. user:alice)', {
+  const id = await promptText('User id (e.g. user:alice)', {
     defaultValue: opts.id,
     required: true,
     validate: (value) => (value.trim() === '' ? 'User id is required.' : null),
@@ -107,14 +154,14 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
 
   const existing = people.find((person) => person.id === next.id);
   const defaultName = existing?.name ?? opts.name;
-  const name = await promptInput('Display name', {
+  const name = await promptText('Display name', {
     defaultValue: defaultName,
     required: true,
     validate: (value) => (value.trim() === '' ? 'Display name is required.' : null),
   });
   next.name = name.trim();
 
-  const email = await promptInput('Email (optional)', {
+  const email = await promptText('Email (optional)', {
     defaultValue: existing?.email ?? opts.email ?? '',
     allowEmpty: true,
   });
@@ -132,7 +179,7 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
   }
 
   if (!existingIds.has(next.id!) && !next.email) {
-    const followUpEmail = await promptInput('Provide email for new user? (optional)', {
+    const followUpEmail = await promptText('Provide email for new user? (optional)', {
       defaultValue: '',
       allowEmpty: true,
     });
@@ -177,16 +224,15 @@ async function handleUserInfo(opts: UserInfoOptions): Promise<void> {
 
   let id = opts.id;
   if (!id) {
-    const canPrompt = (process.stdin.isTTY && process.stdout.isTTY) || process.env.STARDATE_FORCE_INTERACTIVE === '1';
-    if (!canPrompt) {
+    if (!canInteractive()) {
       throw new Error('No --id provided and stdin is not interactive.');
     }
-    const selection = await promptSelect('Select a user to inspect', people.map((person) => ({
-      label: formatPersonSummary(person),
-      value: person.id,
-    })), {
-      allowCustom: false,
-    });
+  const selection = await promptSelect('Select a user to inspect', people.map((person) => ({
+    label: formatPersonSummary(person),
+    value: person.id,
+  })), {
+    allowCustom: false,
+  });
     id = selection;
   }
 
@@ -226,5 +272,34 @@ function printPerson(person: PersonRecord, config: CliConfig): void {
   for (const key of extraKeys) {
     const value = person[key];
     console.log(`  ${key} : ${JSON.stringify(value)}`);
+  }
+}
+
+function printAllUsers(config: CliConfig): void {
+  const people = loadPeople(config);
+  if (people.length === 0) {
+    console.log('No users defined.');
+    return;
+  }
+  console.log(c.heading('Current users:'));
+  const sorted = people.slice().sort((a, b) => a.id.localeCompare(b.id));
+  for (const person of sorted) {
+    const email = person.email ? ` ${person.email}` : '';
+    console.log(`  ${c.id(person.id)} — ${person.name ?? '(no name)'}${email}`);
+  }
+}
+
+
+async function handleUserList(): Promise<void> {
+  const config = loadConfig();
+  const people = loadPeople(config);
+  if (people.length === 0) {
+    console.log('No users defined.');
+    return;
+  }
+  const sorted = people.slice().sort((a, b) => a.id.localeCompare(b.id));
+  for (const person of sorted) {
+    const email = person.email ? ` ${person.email}` : '';
+    console.log(`${c.id(person.id)} — ${person.name ?? '(no name)'}${email}`);
   }
 }

@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import { loadTicket, saveTicket } from '../services/ticket-store.js';
 import { resolveActor } from '../utils/runtime.js';
+import { c } from '../lib/colors.js';
 
 export function registerLabelCommand(program: Command): void {
   program
@@ -11,7 +12,11 @@ export function registerLabelCommand(program: Command): void {
     .argument('<mutations...>')
     .action(async (ticketId: string, mutations: string[]) => {
       await handleLabel(ticketId, mutations);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket label ST-123 +frontend +ux -needs-spec\nNotes:\n  - Prefix a label with + to add, - to remove.\n`,
+    );
 }
 
 async function handleLabel(ticketId: string, mutations: string[]): Promise<void> {
@@ -51,5 +56,5 @@ async function handleLabel(ticketId: string, mutations: string[]): Promise<void>
       to: Array.from(original),
     },
   });
-  console.log(`Updated labels for ${ticketId}`);
+  console.log(`Updated labels for ${c.id(ticketId)}`);
 }

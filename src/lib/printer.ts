@@ -33,7 +33,7 @@ export function formatTable<T>(rows: T[], columns: TableColumn<T>[]): string[] {
   );
 
   const header = columns
-    .map((col, idx) => padRight(col.header, colWidths[idx]))
+    .map((col, idx) => c.bold(padRight(col.header, colWidths[idx])))
     .join('  ');
   const separator = columns
     .map((_, idx) => '-'.repeat(colWidths[idx]))
@@ -47,7 +47,7 @@ export function formatKeyValues(pairs: Array<[string, string]>): string[] {
     return [];
   }
   const width = Math.max(...pairs.map(([key]) => key.length));
-  return pairs.map(([key, value]) => `${padRight(key, width)} : ${value}`);
+  return pairs.map(([key, value]) => `${c.dim(padRight(key, width))} : ${value}`);
 }
 
 function padRight(text: string, width: number): string {
@@ -56,3 +56,4 @@ function padRight(text: string, width: number): string {
   }
   return text + ' '.repeat(width - text.length);
 }
+import { c, isEnabled } from './colors.js';

@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import { loadTicket, saveTicket } from '../services/ticket-store.js';
 import { resolveActor } from '../utils/runtime.js';
+import { c } from '../lib/colors.js';
 
 interface LinkOptions {
   child: string;
@@ -16,7 +17,11 @@ export function registerLinkCommand(program: Command): void {
     .requiredOption('--parent <ticketId>', 'parent ticket (epic or story)')
     .action(async (options: LinkOptions) => {
       await handleLink(options);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate ticket link --child ST-123 --parent EP-9\n  $ stardate ticket link --child SUB-77 --parent ST-123\n`,
+    );
 }
 
 async function handleLink(options: LinkOptions): Promise<void> {
@@ -33,5 +38,5 @@ async function handleLink(options: LinkOptions): Promise<void> {
       to: options.parent,
     },
   });
-  console.log(`Linked ${options.child} -> ${options.parent}`);
+  console.log(`Linked ${c.id(options.child)} -> ${c.id(options.parent)}`);
 }

@@ -41,5 +41,9 @@ export function registerConfigCommand(program: Command): void {
       logger.info(`backlog dir: ${config.tracking.backlogDir}`);
       logger.info(`sprints dir: ${config.tracking.sprintsDir}`);
       logger.info(`generator: ${config.metadata.generator}`);
-    });
+    })
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ stardate config\n  $ stardate config --json\nNotes:\n  - Run inside a Stardate workspace to see resolved tracking paths.\n`,
+    );
 }
