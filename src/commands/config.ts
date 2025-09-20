@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import process from 'node:process';
-import { loadConfig } from '../config/config.js';
+import { resolveConfig } from '../config/config.js';
 import { createLogger } from '../logger.js';
 
 const logger = createLogger();
@@ -11,11 +11,29 @@ export function registerConfigCommand(program: Command): void {
     .description('Inspect resolved CLI configuration')
     .option('-j, --json', 'output as JSON')
     .action((options: { json?: boolean }) => {
-      const config = loadConfig();
+      const resolution = resolveConfig();
+
       if (options.json) {
-        process.stdout.write(`${JSON.stringify(config, null, 2)}\n`);
+        if (!resolution.config) {
+          const payload = {
+            version: resolution.version,
+            workspace: null,
+          };
+          process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+          return;
+        }
+        process.stdout.write(`${JSON.stringify(resolution.config, null, 2)}\n`);
         return;
       }
+
+      if (!resolution.config) {
+        logger.info(`stardate version: ${resolution.version}`);
+        logger.info('workspace: (not detected)');
+        logger.info('Run this command inside a Stardate workspace to inspect tracking paths.');
+        return;
+      }
+
+      const config = resolution.config;
       logger.info(`workspace: ${config.workspaceRoot}`);
       logger.info(`tracking root: ${config.tracking.root}`);
       logger.info(`schema dir: ${config.tracking.schemaDir}`);

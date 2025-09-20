@@ -1,0 +1,6 @@
+tracking:
+  root: .
+  schemaDir: schema
+  ticketsDir: tickets
+  backlogDir: backlog
+  sprintsDir: sprints

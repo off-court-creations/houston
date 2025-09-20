@@ -26,14 +26,25 @@ export interface CliConfig {
   metadata: CliMetadata;
 }
 
+export interface ConfigResolution {
+  config?: CliConfig;
+  configPath?: string;
+  workspaceRoot?: string;
+  source: 'filesystem' | 'env' | 'none';
+  version: string;
+}
+
+export class WorkspaceConfigNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WorkspaceConfigNotFoundError';
+  }
+}
+
 const logger = createLogger();
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function resolveWorkspaceRoot(startDir: string): string {
-  return fs.realpathSync(startDir);
 }
 
 function applyDefaults(workspaceRoot: string, configFromFile: Partial<CliConfig> | undefined, pkgVersion: string): CliConfig {
@@ -70,35 +81,65 @@ export interface LoadConfigOptions {
 }
 
 export function loadConfig(options: LoadConfigOptions = {}): CliConfig {
-  const cwd = options.cwd ?? process.cwd();
-  const workspaceRoot = resolveWorkspaceRoot(cwd);
-
-  const configFile = locateConfigFile(workspaceRoot);
-  let loaded: Partial<CliConfig> | undefined;
-
-  if (configFile) {
-    const fileContent = fs.readFileSync(configFile, 'utf8');
-    const parsed = YAML.parse(fileContent);
-    if (parsed && isObject(parsed)) {
-      loaded = parsed as Partial<CliConfig>;
-    } else {
-      logger.warn(`Ignoring invalid config at ${configFile}`);
-    }
+  const resolution = resolveConfig(options);
+  if (!resolution.config) {
+    const startDir = fs.realpathSync(options.cwd ?? process.cwd());
+    throw new WorkspaceConfigNotFoundError(
+      `No Stardate workspace detected from ${startDir}. Run this command inside a workspace or set STARDATE_CONFIG_PATH.`,
+    );
   }
-
-  const pkgPath = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../..', 'package.json');
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version: string };
-
-  return applyDefaults(workspaceRoot, loaded, pkg.version);
+  return resolution.config;
 }
 
-function locateConfigFile(startDir: string): string | undefined {
+export function resolveConfig(options: LoadConfigOptions = {}): ConfigResolution {
+  const startDir = fs.realpathSync(options.cwd ?? process.cwd());
+  const located = locateConfigFile(startDir);
+  const pkgVersion = readPackageVersion();
+
+  if (!located) {
+    return { version: pkgVersion, source: 'none' };
+  }
+
+  const fileContent = fs.readFileSync(located.configPath, 'utf8');
+  let loaded: Partial<CliConfig> | undefined;
+  const parsed = YAML.parse(fileContent);
+  if (parsed && isObject(parsed)) {
+    loaded = parsed as Partial<CliConfig>;
+  } else {
+    logger.warn(`Ignoring invalid config at ${located.configPath}`);
+  }
+
+  const workspaceRoot = located.workspaceRoot;
+  const config = applyDefaults(workspaceRoot, loaded, pkgVersion);
+
+  return {
+    config,
+    configPath: located.configPath,
+    workspaceRoot,
+    source: located.source,
+    version: pkgVersion,
+  };
+}
+
+interface ConfigFileLocation {
+  configPath: string;
+  workspaceRoot: string;
+  source: 'filesystem' | 'env';
+}
+
+function locateConfigFile(startDir: string): ConfigFileLocation | undefined {
   let currentDir = startDir;
   while (true) {
     for (const candidate of CONFIG_FILE_CANDIDATES) {
       const filePath = path.join(currentDir, candidate);
       if (fs.existsSync(filePath)) {
-        return filePath;
+        const resolvedPath = fs.realpathSync(filePath);
+        const workspaceRoot = fs.realpathSync(path.dirname(resolvedPath));
+        return {
+          configPath: resolvedPath,
+          workspaceRoot,
+          source: 'filesystem',
+        };
       }
     }
     const parent = path.dirname(currentDir);
@@ -109,7 +150,19 @@ function locateConfigFile(startDir: string): string | undefined {
   }
   const envConfig = process.env.STARDATE_CONFIG_PATH;
   if (envConfig && fs.existsSync(envConfig)) {
-    return envConfig;
+    const resolvedPath = fs.realpathSync(envConfig);
+    const workspaceRoot = fs.realpathSync(path.dirname(resolvedPath));
+    return {
+      configPath: resolvedPath,
+      workspaceRoot,
+      source: 'env',
+    };
   }
   return undefined;
+}
+
+function readPackageVersion(): string {
+  const pkgPath = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../..', 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version: string };
+  return pkg.version;
 }
