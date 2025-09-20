@@ -15,7 +15,6 @@
         "required": [
           "id",
           "provider",
-          "remote",
           "default_branch"
         ],
         "properties": {
@@ -28,7 +27,8 @@
             "enum": [
               "github",
               "gitlab",
-              "bitbucket"
+              "bitbucket",
+              "local"
             ]
           },
           "remote": {

@@ -4,7 +4,7 @@ import { loadComponents } from '../services/component-store.js';
 import { normalizeComponentId, promptComponentDetails, registerComponent } from '../services/component-manager.js';
 import { loadComponentRouting } from '../services/component-routing-store.js';
 import { c } from '../lib/colors.js';
-import { canPrompt } from '../lib/interactive.js';
+import { canPrompt, promptConfirm } from '../lib/interactive.js';
 
 interface AddComponentOptions {
   interactive?: boolean;
@@ -72,6 +72,7 @@ async function handleComponentAdd(opts: AddComponentOptions): Promise<void> {
     const normalizedInitialId = opts.id ? normalizeComponentId(opts.id) : undefined;
     const defaultReposFromRouting = normalizedInitialId ? routing.routes[normalizedInitialId] ?? [] : [];
     const initialRepos = opts.repos ? splitList(opts.repos) : defaultReposFromRouting;
+    // First entry
     const details = await promptComponentDetails(config, {
       initialId: opts.id,
       allowEditId: true,
@@ -79,6 +80,19 @@ async function handleComponentAdd(opts: AddComponentOptions): Promise<void> {
     });
     registerComponent(config, details);
     console.log(c.ok(`Recorded ${c.id(details.id)} in taxonomies/components.yaml`));
+
+    // Offer to add more entries (default: No)
+    if (canPrompt()) {
+      while (true) {
+        const again = await promptConfirm('Add another component?', false);
+        if (!again) break;
+        const next = await promptComponentDetails(config, {
+          allowEditId: true,
+        });
+        registerComponent(config, next);
+        console.log(c.ok(`Recorded ${c.id(next.id)} in taxonomies/components.yaml`));
+      }
+    }
     return;
   }
 

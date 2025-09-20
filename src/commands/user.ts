@@ -167,16 +167,13 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
   });
   next.email = email.trim() === '' ? undefined : email.trim();
 
-  const roles = await promptMultiSelect('Roles (optional)', aggregateRoles(people), {
+  const roleChoices = aggregateRoles(people);
+  const roles = await promptMultiSelect('Roles (optional)', roleChoices, {
     defaultValue: splitList(opts.roles ?? existing?.roles?.join(', ')),
     required: false,
     allowEmpty: true,
   });
-  if (roles.length > 0) {
-    next.roles = roles.join(', ');
-  } else {
-    next.roles = undefined;
-  }
+  next.roles = roles.length > 0 ? roles.join(', ') : undefined;
 
   if (!existingIds.has(next.id!) && !next.email) {
     const followUpEmail = await promptText('Provide email for new user? (optional)', {

@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import type { Provider, BranchParams, PullRequestParams } from './types.js';
 import type { RepoConfig } from '../services/repo-registry.js';
 import { parseRemote } from '../services/repo-registry.js';
+import { getSecret } from '../services/secrets.js';
 
 interface GitHubRemote {
   owner: string;
@@ -10,17 +11,17 @@ interface GitHubRemote {
 
 export class GitHubProvider implements Provider {
   private readonly remote: GitHubRemote;
-  private readonly token: string;
   private readonly apiBase: string;
+  private readonly host: string;
 
   constructor(private readonly repoConfig: RepoConfig) {
-    const parsed = parseRemote(repoConfig.remote);
+    const parsed = parseRemote(repoConfig.remote ?? '');
     if (!parsed) {
       throw new Error(`Unsupported GitHub remote format: ${repoConfig.remote}`);
     }
     this.remote = { owner: parsed.owner, repo: parsed.repo.replace(/\.git$/, '') };
-    this.token = resolveToken();
-    this.apiBase = `https://api.${parsed.host}`;
+    this.host = parsed.host;
+    this.apiBase = parsed.host === 'github.com' ? 'https://api.github.com' : `https://${parsed.host}/api/v3`;
   }
 
   async ensureBranch(params: BranchParams): Promise<void> {
@@ -36,9 +37,10 @@ export class GitHubProvider implements Provider {
 
   async openPullRequest(params: PullRequestParams): Promise<{ number: number; url: string }> {
     const url = `${this.apiBase}/repos/${this.remote.owner}/${this.remote.repo}/pulls`;
+    const token = await resolveTokenAsync(this.host);
     const response = await fetch(url, {
       method: 'POST',
-      headers: this.headers(),
+      headers: headers(token),
       body: JSON.stringify({
         title: params.title,
         head: params.head,
@@ -57,13 +59,15 @@ export class GitHubProvider implements Provider {
 
   private async branchExists(branch: string): Promise<boolean> {
     const url = `${this.apiBase}/repos/${this.remote.owner}/${this.remote.repo}/git/ref/heads/${encodeURIComponent(branch)}`;
-    const response = await fetch(url, { headers: this.headers() });
+    const token = await resolveTokenAsync(this.host);
+    const response = await fetch(url, { headers: headers(token) });
     return response.ok;
   }
 
   private async getBranchSha(branch: string): Promise<string> {
     const url = `${this.apiBase}/repos/${this.remote.owner}/${this.remote.repo}/git/ref/heads/${encodeURIComponent(branch)}`;
-    const response = await fetch(url, { headers: this.headers() });
+    const token = await resolveTokenAsync(this.host);
+    const response = await fetch(url, { headers: headers(token) });
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`Unable to load base branch ${branch}: ${response.status} ${text}`);
@@ -74,9 +78,10 @@ export class GitHubProvider implements Provider {
 
   private async createBranch(branch: string, sha: string): Promise<void> {
     const url = `${this.apiBase}/repos/${this.remote.owner}/${this.remote.repo}/git/refs`;
+    const token = await resolveTokenAsync(this.host);
     const response = await fetch(url, {
       method: 'POST',
-      headers: this.headers(),
+      headers: headers(token),
       body: JSON.stringify({
         ref: `refs/heads/${branch}`,
         sha,
@@ -88,24 +93,20 @@ export class GitHubProvider implements Provider {
     }
   }
 
-  private headers(): Record<string, string> {
-    return {
-      Authorization: `Bearer ${this.token}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-      'User-Agent': 'archway-houston-cli',
-    };
-  }
+}
+async function resolveTokenAsync(host: string): Promise<string> {
+  const stored = await getSecret('archway-houston', `github@${host}`);
+  if (stored) return stored;
+  throw new Error(
+    `GitHub provider requires a token. Run: houston auth login github --host ${host}.`,
+  );
 }
 
-export function hasGitHubToken(): boolean {
-  return Boolean(process.env.HOUSTON_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN);
-}
-
-function resolveToken(): string {
-  const token = process.env.HOUSTON_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-  if (!token) {
-    throw new Error('GitHub provider requires HOUSTON_GITHUB_TOKEN (or GITHUB_TOKEN/GH_TOKEN).');
-  }
-  return token;
+function headers(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+    'User-Agent': 'archway-houston-cli',
+  };
 }

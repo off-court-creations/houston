@@ -5,6 +5,8 @@ import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import YAML from 'yaml';
 import { registerWorkspaceCommand } from '../../src/commands/workspace.js';
+import { registerRepoCommand } from '../../src/commands/repo.js';
+import { registerTicketCommand } from '../../src/commands/ticket.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
 
@@ -22,6 +24,8 @@ function teardownWorkspace(): void {
 function buildProgram(): Command {
   const program = new Command();
   registerWorkspaceCommand(program);
+  registerRepoCommand(program);
+  registerTicketCommand(program);
   return program;
 }
 
@@ -49,7 +53,7 @@ describe('workspace command suite', () => {
     const program = buildProgram();
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'houston', 'workspace', 'summary', '--json']);
+    await program.parseAsync(['node', 'houston', 'workspace', 'info', '--json']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const output = logCapture.logs.join('\n');
@@ -65,7 +69,7 @@ describe('workspace command suite', () => {
     const program = buildProgram();
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'houston', 'workspace', 'tickets', '--json', '--type', 'story']);
+    await program.parseAsync(['node', 'houston', 'ticket', 'list', '--json', '--type', 'story']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const payload = JSON.parse(logCapture.logs.join('\n')) as { tickets: Array<{ id: string; type: string }> };
@@ -77,7 +81,7 @@ describe('workspace command suite', () => {
     const program = buildProgram();
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await program.parseAsync(['node', 'houston', 'workspace', 'repos', '--json']);
+    await program.parseAsync(['node', 'houston', 'repo', 'list', '--json']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const payload = JSON.parse(logCapture.logs.join('\n')) as { repos: Array<{ id: string; ticketIds: string[] }> };
@@ -91,7 +95,7 @@ describe('workspace command suite', () => {
     const targetDir = path.join(baseDir, 'new-workspace');
     const logCapture = captureConsole();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(baseDir);
-    await program.parseAsync(['node', 'houston', 'workspace', 'create', 'new-workspace', '--no-git']);
+    await program.parseAsync(['node', 'houston', 'workspace', 'new', 'new-workspace', '--no-git']);
     cwdSpy.mockRestore();
     logCapture.restore();
     const configPath = path.join(targetDir, 'houston.config.yaml');

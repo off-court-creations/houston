@@ -66,12 +66,15 @@ Use `--format json` to emit machine-readable results for custom CI wiring.
 - `sprint new [--start YYYY-MM-DD] [--end YYYY-MM-DD] --name` & `sprint add <id> <tickets...>` — bootstrap sprint shells and scope membership.
 - `sprint list [--status active|upcoming|completed|unknown]` — list sprint shells and scope counts.
 - `repo list` — list configured repositories and referenced tickets.
+- `repo add [--id repo.web --provider github --remote git@github.com:org/web.git --default-branch main]` — add or update repositories (`--interactive` by default when flagless; supports detecting details from a local git directory; prompts for branch prefixes, PR defaults, and protections; supports `provider: local` with no remote). Use `houston auth login github` to enable branch/PR automation.
 - `check` — validate workspace files against schemas, transitions, and guardrails.
 - `hooks install` — install the `prepare-commit-msg` hook that adds `Ticket: <ID>` trailers.
 - `user add [--id user:foo --name "Foo"]` — add or update entries in `people/users.yaml` (supports `--interactive`; default prompts when no flags given).
 - `user info [--id user:foo] [--json]` — inspect a user (prompts for selection when `--id` is omitted).
 - `component add [--id checkout --repos repo.checkout]` — add components to `taxonomies/components.yaml` and wire repos (`--interactive` by default when flagless).
 - `component list` — list known components.
+- `label add [--id frontend] [--labels frontend,backend]` — add labels to `taxonomies/labels.yaml` (`--interactive` by default when flagless).
+- `label list` — list known labels.
 - `workspace new [dir]` — scaffold a new Houston workspace (use `--no-git` to skip git init).
 - `workspace info` — high-level snapshot of the current workspace (`--json` supported).
 
@@ -89,6 +92,10 @@ Run `houston workspace new new-workspace` to initialize a fresh tracking repo sc
 
 ### Provider Tokens
 
-Remote branch/PR automation requires credentials. For GitHub, export a token via
-`HOUSTON_GITHUB_TOKEN` (or `GITHUB_TOKEN`/`GH_TOKEN`). When absent, Houston quietly
-skips provider calls while still updating local metadata.
+Remote branch/PR automation requires credentials stored securely:
+
+- `houston auth login github [--host github.com]` — prompts for a token and stores it encrypted (OS keychain when available, otherwise AES‑GCM encrypted file under `~/.config/houston/`).
+- `houston auth status` — shows stored accounts and backend.
+- `houston auth logout github [--host]` — removes a stored token.
+
+Houston reads tokens from its secure store only. When no token is available, Houston skips provider calls while still updating local metadata.

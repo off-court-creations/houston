@@ -5,9 +5,9 @@ import { readYamlFile } from '../lib/yaml.js';
 
 export interface RepoConfig {
   id: string;
-  provider: 'github' | 'gitlab' | 'bitbucket' | string;
-  remote: string;
-  default_branch?: string;
+  provider: 'github' | 'gitlab' | 'bitbucket' | 'local' | string;
+  remote?: string;
+  default_branch: string;
   branch_prefix?: Record<string, string>;
   pr?: {
     open_by_default?: boolean;

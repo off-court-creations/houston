@@ -42,6 +42,12 @@ export function canPrompt(): boolean {
 
 async function getClack(): Promise<any | null> {
   try {
+    const stdinTty = (process.stdin as any).isTTY;
+    const stdoutTty = (process.stdout as any).isTTY;
+    if (!stdinTty || !stdoutTty) {
+      // Only use clack when attached to a real TTY to avoid uv_tty_init errors in tests/CI.
+      return null;
+    }
     const mod = await import('@clack/prompts');
     return mod;
   } catch {
@@ -139,15 +145,28 @@ export async function promptText(question: string, opts: TextOptions = {}): Prom
   return String(res ?? '');
 }
 
-export async function promptConfirm(question: string, defaultValue = false): Promise<boolean> {
+export async function promptSecret(question: string, opts: { required?: boolean } = {}): Promise<string> {
   const p = await getClack();
   if (!p || !canPrompt()) {
-    // Fallback to select Yes/No
-    const choice = await rlSelect(question, [
-      { label: 'Yes', value: 'yes' },
-      { label: 'No', value: 'no' },
-    ], { allowCustom: false, allowNone: false, defaultValue: defaultValue ? 'yes' : 'no' });
-    return choice === 'yes';
+    // fallback to normal input without echo suppression
+    return rlInput(question, { required: opts.required, allowEmpty: !opts.required });
+  }
+  const res = await (p as any).password?.({ message: question }) ?? await p.text({ message: question });
+  if ((p as any).isCancel?.(res)) {
+    (p as any).cancel?.('Aborted');
+    process.exit(130);
+  }
+  return String(res ?? '');
+}
+
+export async function promptConfirm(question: string, defaultValue = false): Promise<boolean> {
+  const p = await getClack();
+  // When not attached to a real TTY, avoid interactive confirm and honor default.
+  const stdinTty = (process.stdin as any).isTTY;
+  const stdoutTty = (process.stdout as any).isTTY;
+  if (!stdinTty || !stdoutTty || !p || !canPrompt()) {
+    // Default to the provided value without prompting (prevents hanging in tests/CI).
+    return Boolean(defaultValue);
   }
   const res = await p.confirm({ message: question, initialValue: defaultValue });
   if (p.isCancel?.(res)) {
@@ -222,6 +241,10 @@ export async function promptMultiSelect(
   opts: MultiSelectOptions = {},
 ): Promise<string[]> {
   const many = choices.length > MULTI_THRESHOLD;
+  // Guard: clack multiselect cannot handle zero options; fall back to readline
+  if (choices.length === 0) {
+    return rlMulti(question, choices, { defaultValue: opts.defaultValue, required: opts.required, allowEmpty: opts.allowEmpty });
+  }
   if (!canPrompt()) {
     return rlMulti(question, choices, { defaultValue: opts.defaultValue, required: opts.required, allowEmpty: opts.allowEmpty });
   }

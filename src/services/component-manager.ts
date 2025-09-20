@@ -1,6 +1,8 @@
 import process from 'node:process';
 import type { CliConfig } from '../config/config.js';
-import { promptText, promptMultiSelect, canPrompt } from '../lib/interactive.js';
+import { promptText, promptMultiSelect, canPrompt, intro } from '../lib/interactive.js';
+
+let componentIntroShown = false;
 import { loadComponents, addComponent } from './component-store.js';
 import { loadComponentRouting, setComponentRepos } from './component-routing-store.js';
 import { listRepos } from './repo-registry.js';
@@ -40,6 +42,14 @@ export async function promptComponentDetails(
   config: CliConfig,
   options: ComponentPromptOptions = {},
 ): Promise<ComponentDetails> {
+  // Show brief guidance on what a component is when prompting interactively.
+  if (canPrompt() && !componentIntroShown) {
+    await intro(
+      `Good Component Examples\n\n- Domain: checkout, payments, accounts, notifications (sample set in test fixtures).\n- Product areas: catalog, search, orders, shipping, auth, billing.\n- Platform/infra: design-system, sdk-js, ios-app, android-app, api-gateway, observability, ci-cd, terraform.\n- Data/ML: etl-salesforce, feature-store, recommendations, analytics-pipeline.\n\n\nWhat A Component Is\n\n- A stable product/domain slice you ship and track (not a one-off or "bug type" tag).\n- A unit that maps work to one or more repos and ownership.`,
+    );
+    componentIntroShown = true;
+  }
+
   const allowEditId = options.allowEditId !== false;
   const existing = new Set(loadComponents(config));
   let componentId = options.initialId ? normalizeComponentId(options.initialId) : '';

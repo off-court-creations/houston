@@ -52,7 +52,7 @@ export function registerCodeCommand(program: Command): void {
     .description('Code integration helpers')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ houston ticket code open-pr ST-123 --repo repo.web --base main\n  $ houston ticket code sync ST-123\nNotes:\n  - Provider integration requires credentials (e.g. HOUSTON_GITHUB_TOKEN).\n`,
+      `\nExamples:\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ houston ticket code open-pr ST-123 --repo repo.web --base main\n  $ houston ticket code sync ST-123\nNotes:\n  - Provider integration requires credentials; run 'houston auth login github'.\n`,
     );
 
   code

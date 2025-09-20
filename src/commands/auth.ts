@@ -1,0 +1,138 @@
+import { Command } from 'commander';
+import process from 'node:process';
+import fetch from 'node-fetch';
+import { canPrompt, promptSecret, promptText } from '../lib/interactive.js';
+import { getSecret, setSecret, deleteSecret, listAccounts, backendName } from '../services/secrets.js';
+import { c } from '../lib/colors.js';
+
+const SERVICE = 'archway-houston';
+
+export function registerAuthCommand(program: Command): void {
+  const auth = program
+    .command('auth')
+    .description('Manage provider authentication (secure token storage)')
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ houston auth login github\n  $ houston auth status\n  $ houston auth logout github --host github.com\n`,
+    );
+
+  auth
+    .command('login')
+    .description('Login to a provider and store token securely')
+    .argument('<provider>', 'provider (github)')
+    .option('--host <host>', 'host (default: github.com)')
+    .option('--token <token>', 'token (omit to prompt)')
+    .option('--no-validate', 'skip validation request')
+    .action(async (provider: string, opts: { host?: string; token?: string; validate?: boolean }) => {
+      if (provider !== 'github') throw new Error('Only github is supported currently');
+      const host = (opts.host ?? 'github.com').trim();
+      let token = opts.token;
+      if (!token) {
+        if (!canPrompt()) throw new Error('No token provided and not interactive. Use --token.');
+        token = await promptSecret('GitHub Personal Access Token');
+      }
+      token = token.trim();
+      if (!token) throw new Error('Empty token');
+
+      if (opts.validate !== false) {
+        await validateGithubToken(host, token);
+      }
+      const account = `github@${host}`;
+      await setSecret(SERVICE, account, token);
+      console.log(c.ok(`Stored token for ${c.id(account)} using ${await backendName()}`));
+    });
+
+  auth
+    .command('logout')
+    .description('Remove stored token for a provider')
+    .argument('<provider>', 'provider (github)')
+    .option('--host <host>', 'host (default: github.com)')
+    .action(async (provider: string, opts: { host?: string }) => {
+      if (provider !== 'github') throw new Error('Only github is supported currently');
+      const host = (opts.host ?? 'github.com').trim();
+      const account = `github@${host}`;
+      const ok = await deleteSecret(SERVICE, account);
+      console.log(ok ? c.ok(`Removed token for ${c.id(account)}`) : `No token found for ${account}`);
+    });
+
+  auth
+    .command('status')
+    .description('Show auth status (stored accounts)')
+    .option('-j, --json', 'output as JSON')
+    .action(async (opts: { json?: boolean }) => {
+      const accounts = await listAccounts(SERVICE);
+      const payload = { backend: await backendName(), accounts };
+      if (opts.json) {
+        console.log(JSON.stringify(payload, null, 2));
+        return;
+      }
+      console.log(`Backend : ${payload.backend}`);
+      if (accounts.length === 0) {
+        console.log('No stored tokens.');
+      } else {
+        console.log('Stored accounts:');
+        for (const a of accounts) console.log(`  ${a}`);
+      }
+    });
+
+  auth
+    .command('test')
+    .description('Test stored credentials for a provider (no side effects)')
+    .argument('<provider>', 'provider (github)')
+    .option('--host <host>', 'host (default: github.com)')
+    .option('-j, --json', 'output as JSON')
+    .action(async (provider: string, opts: { host?: string; json?: boolean }) => {
+      if (provider !== 'github') throw new Error('Only github is supported currently');
+      const host = (opts.host ?? 'github.com').trim();
+      const account = `github@${host}`;
+      const token = await getSecret(SERVICE, account);
+      if (!token) {
+        throw new Error(`No stored token for ${account}. Run: houston auth login github --host ${host}`);
+      }
+      const api = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
+      const res = await fetch(`${api}/user`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'archway-houston-cli',
+        },
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(`Token test failed for ${host} (${res.status}): ${text}`);
+      }
+      let user: any = {};
+      try { user = JSON.parse(text); } catch {}
+      const scopes = res.headers.get('x-oauth-scopes') || undefined;
+      const payload = {
+        provider: 'github',
+        host,
+        ok: true,
+        user: user?.login ? { login: user.login, id: user.id, type: user.type } : undefined,
+        scopes,
+      };
+      if (opts.json) {
+        console.log(JSON.stringify(payload, null, 2));
+        return;
+      }
+      console.log(c.ok(`GitHub token is valid for ${c.id(user?.login ?? '(unknown)')} on ${host}`));
+      if (scopes) console.log(`Scopes: ${scopes}`);
+    });
+
+  // migrate command removed: secure store is the single source of truth now.
+}
+
+async function validateGithubToken(host: string, token: string): Promise<void> {
+  const api = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
+  const res = await fetch(`${api}/user`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'archway-houston-cli',
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Token validation failed for ${host} (${res.status}): ${text}`);
+  }
+}

@@ -11,8 +11,10 @@ import { registerHooksCommand } from './commands/hooks.js';
 import { registerWorkspaceCommand } from './commands/workspace.js';
 import { registerUserCommand } from './commands/user.js';
 import { registerComponentCommand } from './commands/component.js';
+import { registerLabelCommand } from './commands/label.js';
 import { registerTicketCommand } from './commands/ticket.js';
 import { registerRepoCommand } from './commands/repo.js';
+import { registerAuthCommand } from './commands/auth.js';
 import { createLogger } from './logger.js';
 import { setEnabled as setColorEnabled } from './lib/colors.js';
 
@@ -33,7 +35,7 @@ async function main(): Promise<void> {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston --help\n  $ houston workspace info --json\n  $ houston ticket new story --title "Checkout flow" --assignee user:alice --components web\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston backlog add ST-123 ST-124\n\nEnvironment:\n  HOUSTON_LOG_LEVEL=debug|info|warn|error   Controls logging level\n  HOUSTON_GITHUB_TOKEN                      Token for GitHub provider (or GITHUB_TOKEN/GH_TOKEN)\n  EDITOR / VISUAL                            Used by 'ticket show --edit'\n`,
+      `\nExamples:\n  $ houston --help\n  $ houston workspace info --json\n  $ houston ticket new story --title "Checkout flow" --assignee user:alice --components web\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston backlog add ST-123 ST-124\n\nEnvironment:\n  HOUSTON_LOG_LEVEL=debug|info|warn|error   Controls logging level\n  EDITOR / VISUAL                            Used by 'ticket show --edit'\n`,
     )
     .option('-v, --verbose', 'enable verbose logging')
     .option('-q, --quiet', 'suppress non-error output')
@@ -69,9 +71,11 @@ async function main(): Promise<void> {
   registerSprintCommand(program);
   registerRepoCommand(program);
   registerHooksCommand(program);
+  registerAuthCommand(program);
   registerWorkspaceCommand(program);
   registerUserCommand(program);
   registerComponentCommand(program);
+  registerLabelCommand(program);
 
   const sanitizedArgv = sanitizeArgv(process.argv);
 

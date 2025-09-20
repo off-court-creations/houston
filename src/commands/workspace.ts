@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { Command } from 'commander';
@@ -64,7 +65,7 @@ const FILE_TEMPLATES: Array<[string, string]> = [
   ],
   [
     'repos/repos.yaml',
-    `repos:\n  - id: repo.sample\n    provider: github\n    remote: git@github.com:example/sample.git\n    default_branch: main\n    branch_prefix:\n      epic: epic\n      story: story\n      subtask: subtask\n      bug: bug\n    pr:\n      open_by_default: false\n    protections:\n      require_status_checks: false\n      disallow_force_push: false\ngenerated_by: ${WORKSPACE_GENERATOR}\n`,
+    `repos: []\n`,
   ],
   [
     'repos/component-routing.yaml',
@@ -245,6 +246,8 @@ export function registerWorkspaceCommand(program: Command): void {
       'after',
       `\nExamples:\n  $ houston workspace info\n  $ houston workspace info --json\n`,
     );
+
+  // No additional workspace aliases; use top-level `houston check` instead.
 }
 
 function ensureDirectory(targetDir: string): void {
@@ -259,8 +262,15 @@ function ensureDirectory(targetDir: string): void {
 }
 
 function hasMeaningfulEntries(targetDir: string): boolean {
-  const entries = fs.readdirSync(targetDir);
-  return entries.some((entry) => !IGNORED_DIRECTORY_ENTRIES.has(entry));
+  if (!fs.existsSync(targetDir)) {
+    return false;
+  }
+  try {
+    const entries = fs.readdirSync(targetDir);
+    return entries.some((entry) => !IGNORED_DIRECTORY_ENTRIES.has(entry));
+  } catch {
+    return false;
+  }
 }
 
 function scaffoldWorkspace(targetDir: string, force: boolean): void {
@@ -298,6 +308,32 @@ function writeTemplateFile(targetDir: string, relativePath: string, content: str
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   const normalized = content.endsWith('\n') || content.length === 0 ? content : `${content}\n`;
   fs.writeFileSync(destination, normalized, 'utf8');
+}
+
+function copyBundledSchemas(destSchemaDir: string): void {
+  const here = path.dirname(fileURLToPath(new URL('.', import.meta.url)));
+  // Try both source and dist layouts
+  const candidates = [
+    path.resolve(here, '../../schema'),
+    path.resolve(here, '../schema'),
+  ];
+  let sourceDir: string | undefined;
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      sourceDir = c;
+      break;
+    }
+  }
+  if (!sourceDir) return;
+  const files = fs.readdirSync(sourceDir).filter((f) => f.endsWith('.schema.json'));
+  fs.mkdirSync(destSchemaDir, { recursive: true });
+  for (const file of files) {
+    const src = path.join(sourceDir, file);
+    const dst = path.join(destSchemaDir, file);
+    if (!fs.existsSync(dst)) {
+      fs.copyFileSync(src, dst);
+    }
+  }
 }
 
 function initGitRepository(targetDir: string): void {
@@ -349,11 +385,48 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
   try {
     ensureDirectory(targetDir);
     scaffoldWorkspace(targetDir, allowOverwrite || existsAndHasFiles);
+    // Populate schema directory with bundled JSON schemas when available
+    try {
+      copyBundledSchemas(path.join(targetDir, 'schema'));
+    } catch {
+      // best-effort; fallback loader can still supply bundled schemas at runtime
+    }
     if (initGit) {
       initGitRepository(targetDir);
     }
     sp.stop('Workspace created');
-    await uiOutro(`Initialized at ${targetDir}`);
+
+    // Post-setup guidance and optional next steps
+    const addUsers = await uiConfirm('Add users now?', true);
+    const addComponents = await uiConfirm('Add components now?', true);
+    const addLabels = await uiConfirm('Add labels now?', true);
+    const authLogin = await uiConfirm('Login to GitHub for PR/branch automation now?', false);
+    const addRepos = await uiConfirm('Add repositories now?', true);
+
+    const queue: string[] = [];
+    queue.push(`cd ${targetDir}`);
+    if (addUsers) queue.push('houston user add');
+    if (addComponents) queue.push('houston component add');
+    if (addLabels) queue.push('houston label add');
+    if (authLogin) queue.push('houston auth login github');
+    if (addRepos) queue.push('houston repo add');
+    queue.push('houston check');
+    queue.push('houston workspace info');
+
+    const lines: string[] = [];
+    lines.push('Nice — your Houston workspace is ready.');
+    lines.push('Before creating tickets, consider these next steps:');
+    lines.push('  - People: add core users (owner/IC/PM)');
+    lines.push('  - Components: record stable product areas');
+    lines.push('  - Labels: define taxonomy for filtering/reporting');
+    lines.push('  - Repos: register code repositories (remote optional)');
+    lines.push('  - Auth: store a GitHub token for automation');
+    lines.push('');
+    lines.push('Next steps queue:');
+    for (const cmd of queue) {
+      lines.push(`  $ ${cmd}`);
+    }
+    await uiOutro(lines.join('\n'));
   } catch (error) {
     sp.stopWithError('Failed to create workspace');
     throw error;

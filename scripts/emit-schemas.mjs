@@ -46,7 +46,7 @@ const ticketBase = {
     description: { $ref: '#/$defs/relativeFilePath' },
     components: {
       type: 'array',
-      minItems: 1,
+      minItems: 0,
       uniqueItems: true,
       items: { $ref: '#/$defs/nonEmptyString' },
     },
@@ -339,10 +339,10 @@ const repos = {
       minItems: 1,
       items: {
         type: 'object',
-        required: ['id', 'provider', 'remote', 'default_branch'],
+        required: ['id', 'provider', 'default_branch'],
         properties: {
           id: { type: 'string', minLength: 1 },
-          provider: { type: 'string', enum: ['github', 'gitlab', 'bitbucket'] },
+          provider: { type: 'string', enum: ['github', 'gitlab', 'bitbucket', 'local'] },
           remote: { type: 'string', minLength: 1 },
           default_branch: { type: 'string', minLength: 1 },
           branch_prefix: {
