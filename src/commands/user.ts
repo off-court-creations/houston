@@ -6,6 +6,7 @@ import { loadConfig, type CliConfig } from '../config/config.js';
 import { promptText, promptMultiSelect, promptSelect, promptConfirm, canPrompt as canInteractive } from '../lib/interactive.js';
 import { loadPeople, upsertPerson, hasPerson, type PersonRecord } from '../services/people-store.js';
 import { c } from '../lib/colors.js';
+import { renderBoxTable } from '../lib/printer.js';
 
 interface AddUserOptions {
   interactive?: boolean;
@@ -167,13 +168,30 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
   });
   next.email = email.trim() === '' ? undefined : email.trim();
 
-  const roleChoices = aggregateRoles(people);
-  const roles = await promptMultiSelect('Roles (optional)', roleChoices, {
-    defaultValue: splitList(opts.roles ?? existing?.roles?.join(', ')),
+  const defaultRoles = splitList(opts.roles ?? existing?.roles?.join(', '));
+  const roleChoices = Array.from(new Set([...aggregateRoles(people), ...defaultRoles])).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const selectedRoles = await promptMultiSelect('Roles (optional)', roleChoices, {
+    defaultValue: defaultRoles,
     required: false,
     allowEmpty: true,
   });
-  next.roles = roles.length > 0 ? roles.join(', ') : undefined;
+
+  const newRoleInput = await promptText('Additional roles (comma separated, optional)', {
+    defaultValue: '',
+  });
+  const additionalRoles = splitList(newRoleInput);
+
+  const allRoles: string[] = [];
+  const seen = new Set<string>();
+  for (const role of [...selectedRoles, ...additionalRoles]) {
+    const value = role.trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    allRoles.push(value);
+  }
+  next.roles = allRoles.length > 0 ? allRoles.join(', ') : undefined;
 
   if (!existingIds.has(next.id!) && !next.email) {
     const followUpEmail = await promptText('Provide email for new user? (optional)', {
@@ -224,12 +242,12 @@ async function handleUserInfo(opts: UserInfoOptions): Promise<void> {
     if (!canInteractive()) {
       throw new Error('No --id provided and stdin is not interactive.');
     }
-  const selection = await promptSelect('Select a user to inspect', people.map((person) => ({
-    label: formatPersonSummary(person),
-    value: person.id,
-  })), {
-    allowCustom: false,
-  });
+    const selection = await promptSelect('Select a user to inspect', people.map((person) => ({
+      label: formatPersonSummary(person),
+      value: person.id,
+    })), {
+      allowCustom: false,
+    });
     id = selection;
   }
 
@@ -243,32 +261,39 @@ async function handleUserInfo(opts: UserInfoOptions): Promise<void> {
     return;
   }
 
-  printPerson(person, config);
+  printPerson(person);
 }
 
 function formatPersonSummary(person: PersonRecord): string {
   const name = person.name ?? '(no name)';
-  const email = person.email ? ` ${person.email}` : '';
-  return `${person.id} — ${name}${email}`;
+  return `${person.id} — ${name}`;
 }
 
-function printPerson(person: PersonRecord, config: CliConfig): void {
-  console.log(`${person.id}`);
-  if (person.name) {
-    console.log(`  Name  : ${person.name}`);
-  }
+function printPerson(person: PersonRecord): void {
+  console.log(`${c.id(person.id)} — ${person.name ?? '(no name)'}`);
+
+  const rows: string[][] = [];
   if (person.email) {
-    console.log(`  Email : ${person.email}`);
+    rows.push(['Email', person.email]);
   }
   if (Array.isArray(person.roles) && person.roles.length > 0) {
-    console.log(`  Roles : ${person.roles.join(', ')}`);
+    rows.push(['Roles', person.roles.join(', ')]);
   }
   const extraKeys = Object.keys(person).filter(
     (key) => !['id', 'name', 'email', 'roles'].includes(key) && person[key] !== undefined,
   );
   for (const key of extraKeys) {
     const value = person[key];
-    console.log(`  ${key} : ${JSON.stringify(value)}`);
+    rows.push([key, JSON.stringify(value)]);
+  }
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  const renderedRows = renderBoxTable(rows);
+  for (const line of renderedRows) {
+    console.log(line);
   }
 }
 
@@ -281,8 +306,7 @@ function printAllUsers(config: CliConfig): void {
   console.log(c.heading('Current users:'));
   const sorted = people.slice().sort((a, b) => a.id.localeCompare(b.id));
   for (const person of sorted) {
-    const email = person.email ? ` ${person.email}` : '';
-    console.log(`  ${c.id(person.id)} — ${person.name ?? '(no name)'}${email}`);
+    console.log(`  ${c.id(person.id)} — ${person.name ?? '(no name)'}`);
   }
 }
 
@@ -296,7 +320,6 @@ async function handleUserList(): Promise<void> {
   }
   const sorted = people.slice().sort((a, b) => a.id.localeCompare(b.id));
   for (const person of sorted) {
-    const email = person.email ? ` ${person.email}` : '';
-    console.log(`${c.id(person.id)} — ${person.name ?? '(no name)'}${email}`);
+    console.log(`${c.id(person.id)} — ${person.name ?? '(no name)'}`);
   }
 }

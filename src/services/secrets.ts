@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import process from 'node:process';
-import { canPrompt, promptSecret, promptText } from '../lib/interactive.js';
+import { canPrompt, promptSecret } from '../lib/interactive.js';
 
 // A thin wrapper around OS keychain (keytar) with a secure file fallback using AES-256-GCM.
 
@@ -54,12 +54,49 @@ function writeEncFile(payload: EncPayloadV1): void {
   fs.writeFileSync(FILE, json + (json.endsWith('\n') ? '' : '\n'), { mode: 0o600 });
 }
 
-async function resolvePassphrase(): Promise<string | null> {
+interface ResolveOptions {
+  confirmOnCreate?: boolean;
+}
+
+function hasStoredEntries(): boolean {
+  try {
+    if (!fs.existsSync(FILE)) return false;
+    const payload = readEncFile();
+    return Object.keys(payload.entries).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function resolvePassphrase(options: ResolveOptions = {}): Promise<string | null> {
   const env = process.env.HOUSTON_PASSPHRASE;
   if (env && env.trim() !== '') return env;
   if (!canPrompt()) return null;
-  const pass = await promptSecret('Set or enter passphrase to encrypt secrets');
-  return pass.trim() === '' ? null : pass.trim();
+  const existing = hasStoredEntries();
+  const shouldConfirm = options.confirmOnCreate === true && !existing;
+
+  if (!shouldConfirm) {
+    const message = existing
+      ? 'Enter passphrase to decrypt secrets'
+      : 'Set passphrase to encrypt secrets';
+    const pass = await promptSecret(message);
+    const trimmed = pass.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  while (true) {
+    const first = (await promptSecret('Create passphrase to encrypt secrets')).trim();
+    if (first === '') {
+      console.log('Passphrase is required.');
+      continue;
+    }
+    const second = (await promptSecret('Confirm passphrase')).trim();
+    if (first !== second) {
+      console.log('Passphrases did not match. Try again.');
+      continue;
+    }
+    return first;
+  }
 }
 
 function deriveKey(passphrase: string, salt: Buffer): Buffer {
@@ -121,7 +158,7 @@ export async function setSecret(service: string, account: string, value: string)
     await kt.setPassword(service, account, value);
     return;
   }
-  const pass = await resolvePassphrase();
+  const pass = await resolvePassphrase({ confirmOnCreate: true });
   if (!pass) throw new Error('No passphrase available to encrypt secret');
   const db = readEncFile();
   db.entries[`${service}:${account}`] = encrypt(pass, value);

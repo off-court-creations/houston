@@ -80,6 +80,7 @@ describe('user command', () => {
       if (question.startsWith('User id')) return 'user:interactive';
       if (question.startsWith('Display name')) return 'Interactive User';
       if (question.startsWith('Email')) return 'interactive@example.com';
+      if (question.startsWith('Additional roles')) return 'ops';
       if (question.startsWith('Provide email')) return '';
       return '';
     });
@@ -93,5 +94,18 @@ describe('user command', () => {
     expect(entry).toBeDefined();
     expect(entry?.name).toBe('Interactive User');
     expect(entry?.roles).toContain('developer');
+    expect(entry?.roles).toContain('ops');
+  });
+
+  it('omits emails when listing users', async () => {
+    const program = buildProgram();
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await program.parseAsync(['node', 'houston', 'user', 'list']);
+
+    const output = spy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(output).toContain('user:alice — Alice Dev');
+    expect(output).not.toContain('alice@example.com');
+    spy.mockRestore();
   });
 });

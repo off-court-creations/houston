@@ -75,6 +75,7 @@ async function handleNewCommand(type: TicketRecord['type'], opts: NewOptions): P
   const config = loadConfig();
   let resolvedOpts: NewOptions = { ...opts };
   let inventory = collectWorkspaceInventory(config);
+  ensureEpicPrerequisite(type, inventory);
   let missing = collectMissingFields(type, resolvedOpts);
   let interactiveSession = Boolean(resolvedOpts.interactive);
 
@@ -90,6 +91,7 @@ async function handleNewCommand(type: TicketRecord['type'], opts: NewOptions): P
   }
 
   inventory = collectWorkspaceInventory(config);
+  ensureEpicPrerequisite(type, inventory);
   if (resolvedOpts.parent) {
     const { id: canonicalParent } = resolveTicketId(config, resolvedOpts.parent, {
       inventory,
@@ -117,6 +119,21 @@ function collectMissingFields(type: TicketRecord['type'], opts: NewOptions): str
     missing.push('--story-points');
   }
   return missing;
+}
+
+function ensureEpicPrerequisite(
+  type: TicketRecord['type'],
+  inventory: ReturnType<typeof collectWorkspaceInventory>,
+): void {
+  if (type !== 'story' && type !== 'subtask') {
+    return;
+  }
+  const hasEpic = inventory.tickets.some((ticket) => ticket.type === 'epic');
+  if (hasEpic) {
+    return;
+  }
+  const noun = type === 'story' ? 'story' : 'subtask';
+  throw new Error(`Cannot create a ${noun} because no epics exist yet. Create an epic first.`);
 }
 
 async function runInteractiveNewTicket(

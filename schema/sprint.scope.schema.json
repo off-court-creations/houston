@@ -9,7 +9,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^EPIC-[A-Za-z0-9]{10,}$"
+        "pattern": "^EPIC-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
       }
     },
     "stories": {
@@ -17,7 +17,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^ST-[A-Za-z0-9]{10,}$"
+        "pattern": "^ST-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
       }
     },
     "subtasks": {
@@ -25,7 +25,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^SB-[A-Za-z0-9]{10,}$"
+        "pattern": "^SB-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
       }
     },
     "bugs": {
@@ -33,7 +33,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^BG-[A-Za-z0-9]{10,}$"
+        "pattern": "^BG-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
       }
     },
     "generated_by": {

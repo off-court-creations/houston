@@ -1,3 +1,21 @@
+import { table, getBorderCharacters, type TableUserConfig } from 'table';
+import { c } from './colors.js';
+
+export const BOX_TABLE_CONFIG: TableUserConfig = {
+  border: getBorderCharacters('ramac'),
+  columnDefault: {
+    paddingLeft: 1,
+    paddingRight: 1,
+  },
+};
+
+export function renderBoxTable(rows: string[][], config: TableUserConfig = BOX_TABLE_CONFIG): string[] {
+  if (rows.length === 0) {
+    return [];
+  }
+  return table(rows, config).trimEnd().split('\n');
+}
+
 export interface OutputOptions {
   json?: boolean;
 }
@@ -56,4 +74,3 @@ function padRight(text: string, width: number): string {
   }
   return text + ' '.repeat(width - text.length);
 }
-import { c, isEnabled } from './colors.js';

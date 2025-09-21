@@ -14,6 +14,8 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+
 export function registerRepoCommand(program: Command): void {
   const repo = program
     .command('repo')
@@ -225,6 +227,7 @@ async function promptRepoDetails(config: ReturnType<typeof loadConfig>, initial:
     } else {
       provider = 'local';
     }
+    detected.id = suggestRepoIdFromPath(repoPath);
     // Default branch detection (best-effort)
     let defaultBranch: string | undefined;
     const headRef = run('git', ['-C', repoPath, 'symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).stdout.trim();
@@ -239,8 +242,9 @@ async function promptRepoDetails(config: ReturnType<typeof loadConfig>, initial:
   }
 
   // ID
+  const defaultIdCandidate = detected.id ?? (initial.id && initial.id.trim() !== '' ? initial.id : undefined) ?? 'repo.sample';
   let id = await promptText('Repository id (e.g., repo.web)', {
-    defaultValue: initial.id || 'repo.sample',
+    defaultValue: defaultIdCandidate,
     required: true,
     validate: (val) => (/^[a-z0-9][a-z0-9._-]*$/.test(val) ? null : 'Use lowercase id: ^[a-z0-9][a-z0-9._-]*$'),
   });
@@ -392,4 +396,17 @@ function run(cmd: string, args: string[]): { ok: boolean; stdout: string; stderr
   } catch {
     return { ok: false, stdout: '', stderr: '' };
   }
+}
+
+function suggestRepoIdFromPath(repoPath: string): string {
+  const dirName = path.basename(repoPath);
+  const normalized = dirName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+  const suffix = normalized || 'repo';
+  const candidate = `repo.${suffix}`;
+  return ID_PATTERN.test(candidate) ? candidate : 'repo.sample';
 }

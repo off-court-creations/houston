@@ -21,7 +21,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^(EPIC|ST|SB|BG)-[A-Za-z0-9]{10,}$"
+      "pattern": "^(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
     "type": {
       "type": "string",
@@ -99,7 +99,7 @@
         },
         {
           "type": "string",
-          "pattern": "^(EPIC|ST)-[A-Za-z0-9]{10,}$"
+          "pattern": "^(EPIC|ST)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         }
       ]
     },
@@ -238,7 +238,7 @@
         },
         "branch": {
           "type": "string",
-          "pattern": "^(epic|feat|task|fix)/(EPIC|ST|SB|BG)-[A-Za-z0-9]{10,}--[a-z0-9\\-]{1,32}$"
+          "pattern": "^(epic|feat|task|fix)/(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}--[a-z0-9\\-]{1,32}$"
         },
         "created_by": {
           "$ref": "#/$defs/userIdentifier"

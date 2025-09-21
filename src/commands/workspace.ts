@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
-import { formatKeyValues, formatTable, printOutput } from '../lib/printer.js';
+import { printOutput, renderBoxTable } from '../lib/printer.js';
 import { c } from '../lib/colors.js';
 import {
   buildWorkspaceAnalytics,
@@ -193,52 +193,80 @@ export function registerWorkspaceCommand(program: Command): void {
       };
 
       const lines: string[] = [];
-      lines.push(`Workspace : ${config.workspaceRoot}`);
-      lines.push(`Tracking  : ${config.tracking.root}`);
-      lines.push(`Schema    : ${config.tracking.schemaDir}`);
-      lines.push('');
-      lines.push(c.heading('Tickets by type:'));
-      lines.push(
-        ...formatKeyValues(
-          Object.entries(analytics.summary.ticketTypeCounts).map(([key, value]) => [key, value.toString()]),
-        ).map(indentLine),
+
+      const workspaceTable = renderBoxTable([
+        [c.bold('Resource'), c.bold('Value')],
+        ['Workspace root', config.workspaceRoot],
+        ['Tracking root', config.tracking.root],
+        ['Schema dir', config.tracking.schemaDir],
+        ['Backlog path', analytics.backlog.path],
+        ['Next sprint path', analytics.nextSprint.path],
+      ]);
+      lines.push(c.heading('Workspace'));
+      lines.push(...workspaceTable);
+
+      const summaryRows: string[][] = [
+        [c.bold('Group'), c.bold('Metric'), c.bold('Value')],
+        ['Totals', 'Total tickets', analytics.summary.totalTickets.toString()],
+      ];
+
+      const typeEntries = Object.entries(analytics.summary.ticketTypeCounts).sort((a, b) =>
+        a[0].localeCompare(b[0]),
       );
-      if (Object.keys(analytics.summary.ticketStatusCounts).length > 0) {
-        lines.push(c.heading('Tickets by status:'));
-        lines.push(
-          ...formatKeyValues(
-            Object.entries(analytics.summary.ticketStatusCounts).map(([key, value]) => [key, value.toString()]),
-          ).map(indentLine),
-        );
+      for (const [type, count] of typeEntries) {
+        summaryRows.push(['Type', capitalize(type), count.toString()]);
       }
-      lines.push('');
-      lines.push(
-        ...formatKeyValues([
-          ['Backlog items', analytics.summary.backlogCount.toString()],
-          ['Next sprint', analytics.summary.nextSprintCount.toString()],
-          ['Repos', analytics.summary.repoCount.toString()],
-          ['Components', analytics.summary.componentCount.toString()],
-          ['Labels', analytics.summary.labelCount.toString()],
-          ['People', analytics.summary.userCount.toString()],
-          ['Active sprints', analytics.summary.activeSprintCount.toString()],
-          ['Unknown repo refs', analytics.unknownRepoTickets.length.toString()],
-        ]),
+
+      const statusEntries = Object.entries(analytics.summary.ticketStatusCounts).sort((a, b) =>
+        a[0].localeCompare(b[0]),
       );
-      if (activeSprints.length || upcomingSprints.length || completedSprints.length) {
-        lines.push('');
-        if (activeSprints.length) {
-        lines.push(c.heading('Active sprints:'));
-        lines.push(...activeSprints.map((sprint) => indentLine(renderSprintLine(sprint))));
+      if (statusEntries.length > 0) {
+        for (const [status, count] of statusEntries) {
+          summaryRows.push(['Status', capitalize(status), count.toString()]);
+        }
       }
-      if (upcomingSprints.length) {
-        lines.push(c.heading('Upcoming sprints:'));
-        lines.push(...upcomingSprints.map((sprint) => indentLine(renderSprintLine(sprint))));
+
+      summaryRows.push(
+        ['Totals', 'Backlog items', analytics.summary.backlogCount.toString()],
+        ['Totals', 'Next sprint items', analytics.summary.nextSprintCount.toString()],
+        ['Totals', 'Repos configured', analytics.summary.repoCount.toString()],
+        ['Totals', 'Components', analytics.summary.componentCount.toString()],
+        ['Totals', 'Labels', analytics.summary.labelCount.toString()],
+        ['Totals', 'People', analytics.summary.userCount.toString()],
+        ['Totals', 'Active sprints', analytics.summary.activeSprintCount.toString()],
+        ['Totals', 'Unknown repo refs', analytics.unknownRepoTickets.length.toString()],
+        ['Queues', 'Backlog missing tickets', analytics.backlog.missing.length.toString()],
+        ['Queues', 'Next sprint missing tickets', analytics.nextSprint.missing.length.toString()],
+      );
+
+      const summaryTable = renderBoxTable(summaryRows);
+      lines.push('');
+      lines.push(c.heading('Summary'));
+      lines.push(...summaryTable);
+
+      const displayedSprints = [
+        ...activeSprints,
+        ...upcomingSprints,
+        ...completedSprints.slice(-3),
+      ];
+      lines.push('');
+      lines.push(c.heading('Sprints'));
+      if (displayedSprints.length > 0) {
+        const sprintRows: string[][] = [
+          [c.bold('Sprint'), c.bold('Label'), c.bold('Status'), c.bold('Scoped')],
+        ];
+        for (const sprint of displayedSprints) {
+          sprintRows.push([
+            c.id(sprint.id),
+            formatSprintPretty(sprint),
+            c.status(capitalize(sprint.status)),
+            sprint.totalScoped.toString(),
+          ]);
         }
-        if (completedSprints.length) {
-          lines.push(c.heading('Recent completed sprints:'));
-          const recent = completedSprints.slice(-3);
-          lines.push(...recent.map((sprint) => indentLine(renderSprintLine(sprint))));
-        }
+        const sprintTable = renderBoxTable(sprintRows);
+        lines.push(...sprintTable);
+      } else {
+        lines.push('No sprints found.');
       }
 
       printOutput(payload, lines, options);
@@ -442,16 +470,6 @@ function loadAnalytics(): {
   const inventory = collectWorkspaceInventory(config);
   const analytics = buildWorkspaceAnalytics(inventory);
   return { config, analytics };
-}
-
-function indentLine(text: string): string {
-  return `  ${text}`;
-}
-
-function renderSprintLine(sprint: SprintOverview): string {
-  const label = formatSprintPretty(sprint);
-  const status = capitalize(sprint.status);
-  return `${c.id(sprint.id)} — ${label} [${c.status(status)}]`;
 }
 
 function renderTicketLine(ticket: TicketOverview): string {

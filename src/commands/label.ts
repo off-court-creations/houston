@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { loadConfig } from '../config/config.js';
+import { loadConfig, type CliConfig } from '../config/config.js';
 import { addLabels, loadLabels } from '../services/label-store.js';
 import { canPrompt, promptConfirm, promptText } from '../lib/interactive.js';
 import { c } from '../lib/colors.js';
@@ -66,20 +66,7 @@ async function handleLabelAdd(opts: AddLabelOptions): Promise<void> {
   }
 
   if (interactive) {
-    // First label
-    const first = await promptForLabelValue();
-    addLabels(config, [first]);
-    console.log(c.ok(`Recorded label ${c.id(first)} in taxonomies/labels.yaml`));
-    // Loop additional entries
-    if (canPrompt()) {
-      while (true) {
-        const again = await promptConfirm('Add another label?', false);
-        if (!again) break;
-        const next = await promptForLabelValue();
-        addLabels(config, [next]);
-        console.log(c.ok(`Recorded label ${c.id(next)} in taxonomies/labels.yaml`));
-      }
-    }
+    await runInteractiveLabelAdd(config);
     return;
   }
 
@@ -93,26 +80,63 @@ async function handleLabelAdd(opts: AddLabelOptions): Promise<void> {
 
 function collectLabels(opts: AddLabelOptions): string[] {
   const result: string[] = [];
-  if (opts.id) result.push(opts.id);
+  if (opts.id) result.push(...parseLabelInput(opts.id));
   if (opts.labels) {
-    result.push(
-      ...opts.labels
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
+    result.push(...parseLabelInput(opts.labels));
   }
-  return Array.from(new Set(result));
+  return dedupeLabels(result);
 }
 
-async function promptForLabelValue(): Promise<string> {
+async function runInteractiveLabelAdd(config: CliConfig): Promise<void> {
+  await addPromptedLabels(config);
+  if (!canPrompt()) return;
+  while (true) {
+    const again = await promptConfirm('Add another label?', false);
+    if (!again) break;
+    await addPromptedLabels(config);
+  }
+}
+
+async function addPromptedLabels(config: CliConfig): Promise<void> {
+  const values = await promptForLabelValues();
+  if (values.length === 0) {
+    return;
+  }
+  addLabels(config, values);
+  for (const value of values) {
+    console.log(c.ok(`Recorded label ${c.id(value)} in taxonomies/labels.yaml`));
+  }
+}
+
+async function promptForLabelValues(): Promise<string[]> {
   while (true) {
     const value = await promptText('Label (e.g., frontend, backend, docs)', {
       required: true,
       validate: (input) => (input.trim() === '' ? 'Label is required.' : null),
     });
-    const trimmed = value.trim();
-    if (trimmed) return trimmed;
+    const labels = dedupeLabels(parseLabelInput(value));
+    if (labels.length > 0) {
+      return labels;
+    }
+    console.log('Provide at least one label (comma separated).');
   }
 }
 
+function parseLabelInput(input: string): string[] {
+  return input
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function dedupeLabels(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    if (value === '') continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
+}

@@ -5,6 +5,23 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const schemaDir = path.resolve(__dirname, '../schema');
 
+const CANONICAL_TICKET_ID_PATTERN =
+  '^(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_PARENT_ID_PATTERN =
+  '^(EPIC|ST)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_EPIC_ID_PATTERN =
+  '^EPIC-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_STORY_ID_PATTERN =
+  '^ST-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_SUBTASK_ID_PATTERN =
+  '^SB-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_BUG_ID_PATTERN =
+  '^BG-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_WORK_ITEM_ID_PATTERN =
+  '^(ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+const CANONICAL_BRANCH_PATTERN =
+  '^(epic|feat|task|fix)/(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}--[a-z0-9\\-]{1,32}$';
+
 fs.mkdirSync(schemaDir, { recursive: true });
 
 const ticketBase = {
@@ -30,7 +47,7 @@ const ticketBase = {
   properties: {
     id: {
       type: 'string',
-      pattern: '^(EPIC|ST|SB|BG)-[A-Za-z0-9]{10,}$',
+      pattern: CANONICAL_TICKET_ID_PATTERN,
     },
     type: {
       type: 'string',
@@ -71,7 +88,7 @@ const ticketBase = {
     parent_id: {
       anyOf: [
         { type: 'null' },
-        { type: 'string', pattern: '^(EPIC|ST)-[A-Za-z0-9]{10,}$' },
+        { type: 'string', pattern: CANONICAL_PARENT_ID_PATTERN },
       ],
     },
     sprint_id: {
@@ -135,7 +152,7 @@ const ticketBase = {
         path: { $ref: '#/$defs/nonEmptyString' },
         branch: {
           type: 'string',
-          pattern: '^(epic|feat|task|fix)/(EPIC|ST|SB|BG)-[A-Za-z0-9]{10,}--[a-z0-9\\-]{1,32}$',
+          pattern: CANONICAL_BRANCH_PATTERN,
         },
         created_by: { $ref: '#/$defs/userIdentifier' },
         created_at: { type: 'string', format: 'date-time' },
@@ -192,7 +209,7 @@ const ticketStory = {
         parent_id: {
           anyOf: [
             { type: 'null' },
-            { type: 'string', pattern: '^EPIC-[A-Za-z0-9]{10,}$' },
+            { type: 'string', pattern: CANONICAL_EPIC_ID_PATTERN },
           ],
         },
       },
@@ -211,7 +228,7 @@ const ticketSubtask = {
       type: 'object',
       properties: {
         type: { const: 'subtask' },
-        parent_id: { type: 'string', pattern: '^ST-[A-Za-z0-9]{10,}$' },
+        parent_id: { type: 'string', pattern: CANONICAL_STORY_ID_PATTERN },
       },
       required: ['parent_id', 'story_points'],
       not: { required: ['time_tracking'] },
@@ -232,7 +249,7 @@ const ticketBug = {
         parent_id: {
           anyOf: [
             { type: 'null' },
-            { type: 'string', pattern: '^ST-[A-Za-z0-9]{10,}$' },
+            { type: 'string', pattern: CANONICAL_STORY_ID_PATTERN },
           ],
         },
       },
@@ -274,22 +291,22 @@ const sprintScope = {
     epics: {
       type: 'array',
       uniqueItems: true,
-      items: { type: 'string', pattern: '^EPIC-[A-Za-z0-9]{10,}$' },
+      items: { type: 'string', pattern: CANONICAL_EPIC_ID_PATTERN },
     },
     stories: {
       type: 'array',
       uniqueItems: true,
-      items: { type: 'string', pattern: '^ST-[A-Za-z0-9]{10,}$' },
+      items: { type: 'string', pattern: CANONICAL_STORY_ID_PATTERN },
     },
     subtasks: {
       type: 'array',
       uniqueItems: true,
-      items: { type: 'string', pattern: '^SB-[A-Za-z0-9]{10,}$' },
+      items: { type: 'string', pattern: CANONICAL_SUBTASK_ID_PATTERN },
     },
     bugs: {
       type: 'array',
       uniqueItems: true,
-      items: { type: 'string', pattern: '^BG-[A-Za-z0-9]{10,}$' },
+      items: { type: 'string', pattern: CANONICAL_BUG_ID_PATTERN },
     },
     generated_by: { type: 'string', pattern: '^houston@[^\\s]+$' },
   },
@@ -323,7 +340,7 @@ const backlog = {
     },
   ],
   $defs: {
-    backlogTicketId: { type: 'string', pattern: '^(ST|SB|BG)-[A-Za-z0-9]{10,}$' },
+    backlogTicketId: { type: 'string', pattern: CANONICAL_WORK_ITEM_ID_PATTERN },
   },
 };
 

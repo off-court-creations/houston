@@ -67,8 +67,14 @@ describe('user info command', () => {
     await program.parseAsync(['node', 'houston', 'user', 'info']);
 
     expect(promptSelectMock).toHaveBeenCalled();
-    const output = spy.mock.calls.map((call) => call[0]).join('\n');
-    expect(output).toContain('user:alice');
+    const choices = promptSelectMock.mock.calls[0]?.[1];
+    const labels = Array.isArray(choices) ? choices.map((choice: any) => choice.label) : [];
+    expect(labels.some((label) => typeof label === 'string' && label.includes('alice@example.com'))).toBe(false);
+    const output = spy.mock.calls.map((call) => String(call[0])).join('\n');
+    const normalized = output.replace(/\u001B\[[0-9;]*m/g, '');
+    expect(normalized).toContain('user:alice — Alice Dev');
+    expect(normalized).toContain('| Email | alice@example.com |');
+    expect(normalized).toMatch(/\| Roles \| engineer\s*\|/);
     spy.mockRestore();
   });
 });

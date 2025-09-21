@@ -36,6 +36,7 @@
     "enquirer": "^2.4.1",
     "glob": "^10.3.10",
     "node-fetch": "^3.3.2",
+    "table": "^6.9.0",
     "yaml": "^2.3.3"
   },
   "devDependencies": {

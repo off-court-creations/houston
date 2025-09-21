@@ -14,7 +14,7 @@
         },
         "parent_id": {
           "type": "string",
-          "pattern": "^ST-[A-Za-z0-9]{10,}$"
+          "pattern": "^ST-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         }
       },
       "required": [
