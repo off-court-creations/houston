@@ -8,9 +8,15 @@ import { registerCodeCommand } from './code.js';
 import { handleDescribe } from './describe.js';
 import { handleLogTime } from './bug.js';
 import { loadConfig } from '../config/config.js';
-import { buildWorkspaceAnalytics, type TicketOverview, type WorkspaceAnalytics } from '../services/workspace-analytics.js';
+import {
+  buildWorkspaceAnalytics,
+  compareTicketRecency,
+  type TicketOverview,
+  type WorkspaceAnalytics,
+} from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory, type TicketType } from '../services/workspace-inventory.js';
 import { formatTable, printOutput } from '../lib/printer.js';
+import { shortenTicketId } from '../lib/id.js';
 
 interface DescribeOptions {
   edit?: boolean;
@@ -36,7 +42,7 @@ export function registerTicketCommand(program: Command): void {
     .description('Ticket operations')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket show ST-123\n  $ houston ticket assign ST-123 user:bob\n  $ houston ticket label ST-123 +frontend -needs-spec\n  $ houston ticket link --child ST-124 --parent EP-9\n  $ houston ticket time log BUG-77 30 "triage and repro"\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket list --type story --label frontend --json\n`,
+      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket show ST-550e8400-e29b-41d4-a716-446655440000\n  $ houston ticket assign ST-550e8400-e29b-41d4-a716-446655440000 user:bob\n  $ houston ticket label ST-550e8400-e29b-41d4-a716-446655440000 +frontend -needs-spec\n  $ houston ticket link --child ST-550e8400-e29b-41d4-a716-446655440000 --parent EPIC-11111111-1111-1111-1111-111111111111\n  $ houston ticket time log BG-44444444-4444-4444-4444-444444444444 30 "triage and repro"\n  $ houston ticket code start ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web\n  $ houston ticket list --type story --label frontend --json\n`,
     );
 
   // Ticket creation
@@ -60,7 +66,7 @@ export function registerTicketCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket show ST-123\n  $ houston ticket show ST-123 --edit\n  $ houston ticket show ST-123 --edit --file ticket\n`,
+      `\nExamples:\n  $ houston ticket show ST-550e8400-e29b-41d4-a716-446655440000\n  $ houston ticket show ST-550e8400-e29b-41d4-a716-446655440000 --edit\n  $ houston ticket show ST-550e8400-e29b-41d4-a716-446655440000 --edit --file ticket\n`,
     );
 
   // Time tracking (formerly bug log-time)
@@ -96,7 +102,7 @@ export function registerTicketCommand(program: Command): void {
     .option('--sprint <sprint...>', 'filter by sprint id')
     .option('-c, --component <component...>', 'filter by component name')
     .option('-l, --label <label...>', 'filter by label')
-    .option('--sort <field>', 'sort field (id|status|assignee|updated)', 'id')
+    .option('--sort <field>', 'sort field (id|status|assignee|updated)', 'updated')
     .option('--limit <count>', 'limit number of tickets returned', parsePositiveInt)
     .action(async (options: TicketListOptions) => {
       await handleTicketList(options);
@@ -121,6 +127,7 @@ async function handleTicketList(options: TicketListOptions): Promise<void> {
     count: tickets.length,
     tickets: tickets.map((ticket) => ({
       id: ticket.id,
+      shortId: shortenTicketId(ticket.id),
       type: ticket.type,
       status: ticket.status,
       assignee: ticket.assignee,
@@ -138,7 +145,7 @@ async function handleTicketList(options: TicketListOptions): Promise<void> {
     lines.push('No tickets matched the provided filters.');
   } else {
     const table = formatTable(tickets, [
-      { header: 'ID', value: (row) => row.id },
+      { header: 'ID', value: (row) => shortenTicketId(row.id) },
       { header: 'Type', value: (row) => row.type },
       { header: 'Status', value: (row) => row.status ?? '-' },
       { header: 'Assignee', value: (row) => row.assignee ?? '-' },
@@ -264,7 +271,7 @@ function sortTickets(tickets: TicketOverview[], sort: TicketFilters['sort']): Ti
       sorted.sort((a, b) => (a.assignee ?? '').localeCompare(b.assignee ?? '') || a.id.localeCompare(b.id));
       break;
     case 'updated':
-      sorted.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') || a.id.localeCompare(b.id));
+      sorted.sort(compareTicketRecency);
       break;
     case 'id':
     default:
@@ -276,13 +283,14 @@ function sortTickets(tickets: TicketOverview[], sort: TicketFilters['sort']): Ti
 
 function normalizeSort(sortValue: TicketListOptions['sort']): TicketFilters['sort'] {
   if (!sortValue) {
-    return 'id';
+    return 'updated';
   }
   if (['id', 'status', 'assignee', 'updated'].includes(sortValue)) {
     return sortValue as TicketFilters['sort'];
   }
   throw new Error(`Unknown sort field: ${sortValue}`);
 }
+
 
 function parsePositiveInt(value: string): number {
   const parsed = Number.parseInt(value, 10);

@@ -77,6 +77,13 @@ Use `--format json` to emit machine-readable results for custom CI wiring.
 - `label list` — list known labels.
 - `workspace new [dir]` — scaffold a new Houston workspace (use `--no-git` to skip git init).
 - `workspace info` — high-level snapshot of the current workspace (`--json` supported).
+### Ticket ID Format
+
+Houston now issues canonical ticket identifiers as `PREFIX-uuid`, for example
+`ST-550e8400-e29b-41d4-a716-446655440000`. Commands accept either the full
+canonical value or the short form (`ST-550e8400`) when it resolves uniquely in
+the current workspace. Human-facing output (tables, logs) defaults to the short
+form while files and branches always store the canonical string.
 
 ## Workspace Insights
 

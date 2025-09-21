@@ -16,6 +16,8 @@ import { buildWorkspaceAnalytics, type WorkspaceAnalytics, type SprintOverview, 
 import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
 import { formatTable, printOutput } from '../lib/printer.js';
 import { c } from '../lib/colors.js';
+import { resolveTicketIds } from '../services/ticket-id-resolver.js';
+import { shortenTicketId } from '../lib/id.js';
 
 interface SprintNewOptions {
   start?: string;
@@ -30,7 +32,7 @@ export function registerSprintCommand(program: Command): void {
     .description('Sprint management commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n  $ houston sprint list --status active\n`,
+      `\nExamples:\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n  $ houston sprint list --status active\n`,
     );
 
   sprint
@@ -56,7 +58,10 @@ export function registerSprintCommand(program: Command): void {
     .action(async (sprintId: string, ticketIds: string[]) => {
       await handleSprintAdd(sprintId, ticketIds);
     })
-    .addHelpText('after', `\nExamples:\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-123 ST-124\n`);
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n`,
+    );
 
   sprint
     .command('list')
@@ -159,7 +164,8 @@ async function handleSprintAdd(sprintId: string, ticketIds: string[]): Promise<v
     throw new Error(`Sprint ${sprintId} not found`);
   }
   const scope = sprint.scope;
-  for (const ticketId of ticketIds) {
+  const resolution = resolveTicketIds(config, ticketIds);
+  for (const ticketId of resolution.ids) {
     const ticket = loadTicket(config, ticketId);
     switch (ticket.type) {
       case 'epic':
@@ -177,7 +183,13 @@ async function handleSprintAdd(sprintId: string, ticketIds: string[]): Promise<v
     }
   }
   saveSprintScope(config, sprintId, scope);
-  console.log(c.ok(`Added ${ticketIds.length} ticket(s) to ${c.id(sprintId)}`));
+  console.log(
+    c.ok(
+      `Added ${resolution.ids.length} ticket(s) to ${c.id(sprintId)}: ${resolution.ids
+        .map(shortenTicketId)
+        .join(', ')}`,
+    ),
+  );
 }
 
 function uniquePush(list: string[] | undefined, id: string): string[] {

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerDescribeCommand } from '../../src/commands/describe.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
+const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
 
 let tempDir: string;
 
@@ -40,13 +41,13 @@ describe('describe command', () => {
         return true;
       }) as unknown as typeof process.stdout.write);
 
-    await program.parseAsync(['node', 'houston', 'describe', 'ST-1234567890AB']);
+    await program.parseAsync(['node', 'houston', 'describe', STORY_ID]);
 
     cwdSpy.mockRestore();
     writeSpy.mockRestore();
 
     const output = chunks.join('');
-    expect(output).toContain('id: ST-1234567890AB');
+    expect(output).toContain(`id: ${STORY_ID}`);
     expect(output).toContain('type: story');
     expect(output).not.toContain('{');
   });

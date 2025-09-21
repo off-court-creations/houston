@@ -3,6 +3,8 @@ import { loadConfig } from '../config/config.js';
 import { loadTicket, saveTicket } from '../services/ticket-store.js';
 import { resolveActor } from '../utils/runtime.js';
 import { c } from '../lib/colors.js';
+import { resolveTicketId } from '../services/ticket-id-resolver.js';
+import { shortenTicketId } from '../lib/id.js';
 
 interface LinkOptions {
   child: string;
@@ -20,23 +22,29 @@ export function registerLinkCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket link --child ST-123 --parent EP-9\n  $ houston ticket link --child SUB-77 --parent ST-123\n`,
+      `\nExamples:\n  $ houston ticket link --child ST-550e8400-e29b-41d4-a716-446655440000 --parent EPIC-11111111-1111-1111-1111-111111111111\n  $ houston ticket link --child SB-33333333-3333-3333-3333-333333333333 --parent ST-550e8400-e29b-41d4-a716-446655440000\n`,
     );
 }
 
 async function handleLink(options: LinkOptions): Promise<void> {
   const config = loadConfig();
   const actor = resolveActor();
-  const ticket = loadTicket(config, options.child);
+  const childResolution = resolveTicketId(config, options.child);
+  const parentResolution = resolveTicketId(config, options.parent, {
+    inventory: childResolution.inventory,
+  });
+  const ticket = loadTicket(config, childResolution.id);
   const previous = ticket.parent_id ?? null;
-  ticket.parent_id = options.parent;
+  ticket.parent_id = parentResolution.id;
   saveTicket(config, ticket, {
     actor,
     history: {
       op: 'link',
       from: previous,
-      to: options.parent,
+      to: parentResolution.id,
     },
   });
-  console.log(`Linked ${c.id(options.child)} -> ${c.id(options.parent)}`);
+  console.log(
+    `Linked ${c.id(shortenTicketId(childResolution.id))} -> ${c.id(shortenTicketId(parentResolution.id))}`,
+  );
 }

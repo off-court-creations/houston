@@ -10,6 +10,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixtureWorkspace = path.resolve(__dirname, '../fixtures/workspace');
 const schemaDir = fileURLToPath(new URL('../../schema/', import.meta.url));
 
+const EPIC_ID = 'EPIC-11111111-1111-1111-1111-111111111111';
+const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
+
 let tempWorkspace: string | undefined;
 
 function makeConfig(workspaceRoot: string): CliConfig {
@@ -48,15 +51,15 @@ describe('workspace validator', () => {
     const workspace = createWorkspaceCopy();
     const result = await validateWorkspace({ config: makeConfig(workspace) });
     expect(result.errors).toHaveLength(0);
-    expect(result.checkedFiles).toContain('tickets/EPIC/EPIC-1234567890AB/ticket.yaml');
+    expect(result.checkedFiles).toContain(`tickets/EPIC/${EPIC_ID}/ticket.yaml`);
   });
 
   it('reports schema errors for invalid documents', async () => {
     const workspace = createWorkspaceCopy();
-    const ticketFile = path.join(workspace, 'tickets/STORY/ST-1234567890AB/ticket.yaml');
+    const ticketFile = path.join(workspace, 'tickets/STORY', STORY_ID, 'ticket.yaml');
     fs.writeFileSync(ticketFile, 'type: story\n', 'utf8');
     const result = await validateWorkspace({ config: makeConfig(workspace) });
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0].file).toBe('tickets/STORY/ST-1234567890AB/ticket.yaml');
+    expect(result.errors[0].file).toBe(`tickets/STORY/${STORY_ID}/ticket.yaml`);
   });
 });

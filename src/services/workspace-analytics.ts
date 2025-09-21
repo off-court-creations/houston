@@ -119,7 +119,7 @@ export function buildWorkspaceAnalytics(inventory: WorkspaceInventory): Workspac
     }
   }
 
-  tickets.sort((a, b) => a.id.localeCompare(b.id));
+  tickets.sort(compareTicketRecency);
 
   const sprintScopeMap = new Map<string, SprintScopeInfo>();
   for (const scope of inventory.sprintScopes) {
@@ -136,7 +136,7 @@ export function buildWorkspaceAnalytics(inventory: WorkspaceInventory): Workspac
   const repoUsage = inventory.repos
     .map((repo) => ({
       config: repo,
-      tickets: (repoTicketIndex.get(repo.id) ?? []).slice().sort((a, b) => a.id.localeCompare(b.id)),
+      tickets: (repoTicketIndex.get(repo.id) ?? []).slice().sort(compareTicketRecency),
     }))
     .sort((a, b) => a.config.id.localeCompare(b.config.id));
 
@@ -166,6 +166,28 @@ export function buildWorkspaceAnalytics(inventory: WorkspaceInventory): Workspac
     labels: inventory.labels.slice().sort(),
     users: inventory.users.slice().sort(),
   };
+}
+
+export function compareTicketRecency(a: TicketOverview, b: TicketOverview): number {
+  const left = a.updatedAt ?? a.createdAt ?? '';
+  const right = b.updatedAt ?? b.createdAt ?? '';
+  if (left && right && left !== right) {
+    return right.localeCompare(left);
+  }
+  if (!left && right) {
+    return 1;
+  }
+  if (left && !right) {
+    return -1;
+  }
+  if (left && right) {
+    const createdLeft = a.createdAt ?? '';
+    const createdRight = b.createdAt ?? '';
+    if (createdLeft && createdRight && createdLeft !== createdRight) {
+      return createdRight.localeCompare(createdLeft);
+    }
+  }
+  return a.id.localeCompare(b.id);
 }
 
 function initializeTicketTypeCounts(): Record<TicketType, number> {

@@ -4,6 +4,7 @@ import { buildWorkspaceAnalytics, type WorkspaceAnalytics } from '../services/wo
 import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
 import { printOutput, formatTable } from '../lib/printer.js';
 import { c } from '../lib/colors.js';
+import { shortenTicketId } from '../lib/id.js';
 import type { RepoConfig } from '../services/repo-registry.js';
 import { upsertRepo, repoIdExists, validateRepoConfig } from '../services/repo-store.js';
 import { canPrompt, promptSelect, promptText, promptConfirm, promptMultiSelect } from '../lib/interactive.js';
@@ -80,7 +81,7 @@ async function handleRepoList(options: { json?: boolean }): Promise<void> {
       id: entry.config.id,
       provider: entry.config.provider,
       remote: entry.config.remote ?? '-',
-      tickets: entry.tickets.length ? entry.tickets.map((t) => t.id).join(',') : '-',
+      tickets: entry.tickets.length ? entry.tickets.map((t) => shortenTicketId(t.id)).join(',') : '-',
     }));
     const table = formatTable(rows, [
       { header: 'ID', value: (row) => row.id },
@@ -93,7 +94,8 @@ async function handleRepoList(options: { json?: boolean }): Promise<void> {
 
   if (analytics.unknownRepoTickets.length) {
     lines.push('');
-    lines.push(c.warn(`Unknown repo references: ${analytics.unknownRepoTickets.map((t) => t.id).join(', ')}`));
+    const unknown = analytics.unknownRepoTickets.map((t) => shortenTicketId(t.id)).join(', ');
+    lines.push(c.warn(`Unknown repo references: ${unknown}`));
   }
 
   printOutput(payload, lines, options);

@@ -35,7 +35,7 @@ async function main(): Promise<void> {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston --help\n  $ houston workspace info --json\n  $ houston ticket new story --title "Checkout flow" --assignee user:alice --components web\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston backlog add ST-123 ST-124\n\nEnvironment:\n  HOUSTON_LOG_LEVEL=debug|info|warn|error   Controls logging level\n  EDITOR / VISUAL                            Used by 'ticket show --edit'\n`,
+      `\nExamples:\n  $ houston --help\n  $ houston workspace info --json\n  $ houston ticket new story --title "Checkout flow" --assignee user:alice --components web\n  $ houston ticket code start ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston backlog add ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n\nEnvironment:\n  HOUSTON_LOG_LEVEL=debug|info|warn|error   Controls logging level\n  EDITOR / VISUAL                            Used by 'ticket show --edit'\n`,
     )
     .option('-v, --verbose', 'enable verbose logging')
     .option('-q, --quiet', 'suppress non-error output')

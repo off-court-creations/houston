@@ -6,6 +6,8 @@ import { createProvider } from '../providers/index.js';
 import { loadTicket, saveTicket, type TicketRecord, type HistoryEventInput } from '../services/ticket-store.js';
 import { resolveActor, resolveTimestamp } from '../utils/runtime.js';
 import { c } from '../lib/colors.js';
+import { resolveTicketId } from '../services/ticket-id-resolver.js';
+import { shortenTicketId } from '../lib/id.js';
 
 interface CodeStartOptions {
   repo: string[];
@@ -52,7 +54,7 @@ export function registerCodeCommand(program: Command): void {
     .description('Code integration helpers')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ houston ticket code open-pr ST-123 --repo repo.web --base main\n  $ houston ticket code sync ST-123\nNotes:\n  - Provider integration requires credentials; run 'houston auth login github'.\n`,
+      `\nExamples:\n  $ houston ticket code start ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web\n  $ houston ticket code link ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --branch feat/ST-550e8400-e29b-41d4-a716-446655440000--checkout\n  $ houston ticket code open-pr ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --base main\n  $ houston ticket code sync ST-550e8400-e29b-41d4-a716-446655440000\nNotes:\n  - Provider integration requires credentials; run 'houston auth login github'.\n`,
     );
 
   code
@@ -67,7 +69,7 @@ export function registerCodeCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket code start ST-123 --repo repo.web\n  $ houston ticket code start ST-123 --repo repo.web --repo repo.api\n  $ houston ticket code start ST-123 --repo repo.web --branch feat/ST-123--checkout\n`,
+      `\nExamples:\n  $ houston ticket code start ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web\n  $ houston ticket code start ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --repo repo.api\n  $ houston ticket code start ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --branch feat/ST-550e8400-e29b-41d4-a716-446655440000--checkout\n`,
     );
 
   code
@@ -84,7 +86,7 @@ export function registerCodeCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout\n  $ houston ticket code link ST-123 --repo repo.web --branch feat/ST-123--checkout --pr 42\n`,
+      `\nExamples:\n  $ houston ticket code link ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --branch feat/ST-550e8400-e29b-41d4-a716-446655440000--checkout\n  $ houston ticket code link ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --branch feat/ST-550e8400-e29b-41d4-a716-446655440000--checkout --pr 42\n`,
     );
 
   code
@@ -102,7 +104,7 @@ export function registerCodeCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket code open-pr ST-123 --repo repo.web --base main\n  $ houston ticket code open-pr ST-123 --repo repo.web --number 42 --url https://github.com/org/repo/pull/42\n`,
+      `\nExamples:\n  $ houston ticket code open-pr ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --base main\n  $ houston ticket code open-pr ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web --number 42 --url https://github.com/org/repo/pull/42\n`,
     );
 
   code
@@ -113,7 +115,10 @@ export function registerCodeCommand(program: Command): void {
     .action(async (ticketId: string, opts: { repo?: string }) => {
       await handleCodeSync(ticketId, opts.repo);
     })
-    .addHelpText('after', `\nExamples:\n  $ houston ticket code sync ST-123\n  $ houston ticket code sync ST-123 --repo repo.web\n`);
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ houston ticket code sync ST-550e8400-e29b-41d4-a716-446655440000\n  $ houston ticket code sync ST-550e8400-e29b-41d4-a716-446655440000 --repo repo.web\n`,
+    );
 }
 
 function collectValues(value: string, previous: string[]): string[] {
@@ -125,11 +130,12 @@ async function handleCodeStart(ticketId: string, options: CodeStartOptions): Pro
     throw new Error('At least one --repo must be provided');
   }
   const config = loadConfig();
+  const { id: canonicalId } = resolveTicketId(config, ticketId);
   const actor = resolveActor();
   const now = resolveTimestamp();
-  const ticket = loadTicket(config, ticketId);
+  const ticket = loadTicket(config, canonicalId);
   const { codeBlock, repos } = readCodeBlock(ticket);
-  const branchName = options.branch ?? generateBranchName(ticketId, ticket.title as string | undefined, ticket.type);
+  const branchName = options.branch ?? generateBranchName(canonicalId, ticket.title as string | undefined, ticket.type);
   const historyEvents: HistoryEventInput[] = [];
 
   for (const repoId of options.repo) {
@@ -159,14 +165,15 @@ async function handleCodeStart(ticketId: string, options: CodeStartOptions): Pro
     actor,
     history: historyEvents,
   });
-  console.log(`Linked branch ${branchName} for ${ticketId}`);
+  console.log(`Linked branch ${branchName} for ${c.id(shortenTicketId(canonicalId))}`);
 }
 
 async function handleCodeLink(ticketId: string, opts: CodeLinkOptions): Promise<void> {
   const config = loadConfig();
+  const { id: canonicalId } = resolveTicketId(config, ticketId);
   const actor = resolveActor();
   const now = resolveTimestamp();
-  const ticket = loadTicket(config, ticketId);
+  const ticket = loadTicket(config, canonicalId);
   const { codeBlock, repos } = readCodeBlock(ticket);
   let entry = repos.find((item) => item.repo_id === opts.repo);
   if (!entry) {
@@ -200,14 +207,15 @@ async function handleCodeLink(ticketId: string, opts: CodeLinkOptions): Promise<
     actor,
     history,
   });
-  console.log(`Linked ${opts.branch} on ${opts.repo} to ${ticketId}`);
+  console.log(`Linked ${opts.branch} on ${opts.repo} to ${c.id(shortenTicketId(canonicalId))}`);
 }
 
 async function handleOpenPr(ticketId: string, opts: CodeOpenPrOptions): Promise<void> {
   const config = loadConfig();
+  const { id: canonicalId } = resolveTicketId(config, ticketId);
   const actor = resolveActor();
   const now = resolveTimestamp();
-  const ticket = loadTicket(config, ticketId);
+  const ticket = loadTicket(config, canonicalId);
   const { codeBlock, repos } = readCodeBlock(ticket);
   const entry = repos.find((item) => item.repo_id === opts.repo);
   if (!entry) {
@@ -267,14 +275,15 @@ async function handleOpenPr(ticketId: string, opts: CodeOpenPrOptions): Promise<
       number: resolvedNumber,
     },
   });
-  console.log(c.ok(`Recorded PR #${resolvedNumber} for ${c.id(ticketId)}`));
+  console.log(c.ok(`Recorded PR #${resolvedNumber} for ${c.id(shortenTicketId(canonicalId))}`));
 }
 
 async function handleCodeSync(ticketId: string, repoId?: string): Promise<void> {
   const config = loadConfig();
+  const { id: canonicalId } = resolveTicketId(config, ticketId);
   const actor = resolveActor();
   const now = resolveTimestamp();
-  const ticket = loadTicket(config, ticketId);
+  const ticket = loadTicket(config, canonicalId);
   const { codeBlock, repos } = readCodeBlock(ticket);
   if (repoId) {
     const entry = repos.find((item) => item.repo_id === repoId);
@@ -295,7 +304,7 @@ async function handleCodeSync(ticketId: string, repoId?: string): Promise<void> 
       repo_id: repoId,
     },
   });
-  console.log(c.ok(`Updated sync timestamp for ${c.id(ticketId)}`));
+  console.log(c.ok(`Updated sync timestamp for ${c.id(shortenTicketId(canonicalId))}`));
 }
 
 async function ensureRemoteBranch(config: CliConfig, repoId: string, branch: string): Promise<void> {

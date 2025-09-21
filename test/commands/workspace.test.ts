@@ -9,6 +9,7 @@ import { registerRepoCommand } from '../../src/commands/repo.js';
 import { registerTicketCommand } from '../../src/commands/ticket.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
+const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
 
 let tempDir: string;
 
@@ -62,7 +63,7 @@ describe('workspace command suite', () => {
       backlog: { ticketIds: string[] };
     };
     expect(payload.summary.totalTickets).toBe(2);
-    expect(payload.backlog.ticketIds).toContain('ST-1234567890AB');
+    expect(payload.backlog.ticketIds).toContain(STORY_ID);
   });
 
   it('filters tickets by type', async () => {
@@ -86,7 +87,7 @@ describe('workspace command suite', () => {
     logCapture.restore();
     const payload = JSON.parse(logCapture.logs.join('\n')) as { repos: Array<{ id: string; ticketIds: string[] }> };
     expect(payload.repos[0]?.id).toBe('repo.checkout');
-    expect(payload.repos[0]?.ticketIds).toContain('ST-1234567890AB');
+    expect(payload.repos[0]?.ticketIds).toContain(STORY_ID);
   });
 
   it('creates a new workspace skeleton', async () => {

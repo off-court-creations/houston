@@ -18,6 +18,8 @@ const promptSelectMock = promptSelect as vi.MockedFunction<typeof promptSelect>;
 const promptMultiSelectMock = promptMultiSelect as vi.MockedFunction<typeof promptMultiSelect>;
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
+const EPIC_ID = 'EPIC-11111111-1111-1111-1111-111111111111';
+const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
 
 let tempDir: string;
 const originalCwd = process.cwd;
@@ -140,7 +142,7 @@ describe('new command interactive mode', () => {
     promptSelectMock.mockImplementation(async (question) => {
       if (question.startsWith('Assignee')) return 'user:alice';
       if (question.startsWith('Priority')) return undefined;
-      if (question.startsWith('Select parent epic')) return 'EPIC-1234567890AB';
+      if (question.startsWith('Select parent epic')) return EPIC_ID;
       return undefined;
     });
 
@@ -157,7 +159,7 @@ describe('new command interactive mode', () => {
     const created = fs.readdirSync(storyDir).find((entry) => !before.has(entry));
     expect(created).toBeDefined();
     const ticket = YAML.parse(fs.readFileSync(path.join(storyDir, created!, 'ticket.yaml'), 'utf8'));
-    expect(ticket.parent_id).toBe('EPIC-1234567890AB');
+    expect(ticket.parent_id).toBe(EPIC_ID);
     expect(ticket.labels).toContain('frontend');
 
     const backlog = YAML.parse(fs.readFileSync(backlogFile, 'utf8'));
@@ -180,7 +182,7 @@ describe('new command interactive mode', () => {
     promptSelectMock.mockImplementation(async (question) => {
       if (question.startsWith('Assignee')) return 'user:alice';
       if (question.startsWith('Priority')) return 'P2';
-      if (question.startsWith('Select parent story')) return 'ST-1234567890AB';
+      if (question.startsWith('Select parent story')) return STORY_ID;
       return undefined;
     });
 
@@ -198,7 +200,7 @@ describe('new command interactive mode', () => {
     const created = entries.find((entry) => !before.has(entry));
     expect(created).toBeDefined();
     const ticket = YAML.parse(fs.readFileSync(path.join(subtaskDir, created!, 'ticket.yaml'), 'utf8'));
-    expect(ticket.parent_id).toBe('ST-1234567890AB');
+    expect(ticket.parent_id).toBe(STORY_ID);
     expect(ticket.story_points).toBe(3);
   });
 });

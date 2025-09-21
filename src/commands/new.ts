@@ -2,7 +2,8 @@ import { Command } from 'commander';
 import path from 'node:path';
 import process from 'node:process';
 import { loadConfig, type CliConfig } from '../config/config.js';
-import { generateTicketId } from '../lib/id.js';
+import { generateTicketId, shortenTicketId } from '../lib/id.js';
+import { resolveTicketId } from '../services/ticket-id-resolver.js';
 import { promptText, promptMultiSelect, promptSelect, canPrompt } from '../lib/interactive.js';
 import { loadBacklog, saveBacklog } from '../services/backlog-store.js';
 import { resolveTicketPaths } from '../services/path-resolver.js';
@@ -62,7 +63,7 @@ export function registerNewCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-123 --story-points 3\n  $ houston ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ houston ticket new story --interactive\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n`,
+      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-550e8400-e29b-41d4-a716-446655440000 --story-points 3\n  $ houston ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ houston ticket new story --interactive\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n`,
     );
 }
 
@@ -89,6 +90,12 @@ async function handleNewCommand(type: TicketRecord['type'], opts: NewOptions): P
   }
 
   inventory = collectWorkspaceInventory(config);
+  if (resolvedOpts.parent) {
+    const { id: canonicalParent } = resolveTicketId(config, resolvedOpts.parent, {
+      inventory,
+    });
+    resolvedOpts.parent = canonicalParent;
+  }
   await finalizeTicketCreation(type, resolvedOpts, config, interactiveSession, inventory);
 }
 
@@ -330,7 +337,8 @@ function filterTickets(tickets: TicketInfo[], type: TicketType): TicketInfo[] {
 function formatTicketChoice(ticket: TicketInfo): string {
   const title = getString(ticket.data, 'title') ?? getString(ticket.data, 'summary') ?? '';
   const status = getString(ticket.data, 'status');
-  return status ? `${ticket.id} — ${title} [${status}]` : `${ticket.id} — ${title}`;
+  const shortId = shortenTicketId(ticket.id);
+  return status ? `${shortId} — ${title} [${status}]` : `${shortId} — ${title}`;
 }
 
 async function promptForCustomList(question: string, defaults: string[] = [], required: boolean): Promise<string[]> {
@@ -487,5 +495,9 @@ async function finalizeTicketCreation(
     saveBacklog(config, backlog);
   }
 
-  console.log(c.ok(`Created ${c.id(id)} at ${path.relative(process.cwd(), resolveTicketPaths(config, id).ticketFile)}`));
+  console.log(
+    c.ok(
+      `Created ${c.id(shortenTicketId(id))} at ${path.relative(process.cwd(), resolveTicketPaths(config, id).ticketFile)}`,
+    ),
+  );
 }

@@ -36,6 +36,6 @@ export function registerCheckCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston check\n  $ houston check --format json\n  $ houston check --file tickets/STORY/ST-123/ticket.yaml\n`,
+      `\nExamples:\n  $ houston check\n  $ houston check --format json\n  $ houston check --file tickets/STORY/ST-550e8400-e29b-41d4-a716-446655440000/ticket.yaml\n`,
     );
 }

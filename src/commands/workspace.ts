@@ -16,6 +16,7 @@ import {
 } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory, TicketType } from '../services/workspace-inventory.js';
 import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, spinner as uiSpinner } from '../lib/interactive.js';
+import { shortenTicketId } from '../lib/id.js';
 
 interface JsonOption {
   json?: boolean;
@@ -459,7 +460,8 @@ function renderTicketLine(ticket: TicketOverview): string {
   const summary = ticket.summary ?? ticket.title ?? '';
   const coloredStatus = ticket.status ? `[${c.status(ticket.status)}]` : '';
   const coloredAssignee = ticket.assignee ? c.dim(`@${ticket.assignee}`) : '';
-  return `${c.id(ticket.id)} ${coloredStatus} ${coloredAssignee} ${summary}`.replace(/\s+/g, ' ').trim();
+  const shortId = shortenTicketId(ticket.id);
+  return `${c.id(shortId)} ${coloredStatus} ${coloredAssignee} ${summary}`.replace(/\s+/g, ' ').trim();
 }
 
 function toTicketStub(ticket: TicketOverview): {

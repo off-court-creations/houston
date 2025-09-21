@@ -5,6 +5,7 @@ import { loadConfig } from '../config/config.js';
 import { resolveTicketPaths } from '../services/path-resolver.js';
 import { readYamlFile } from '../lib/yaml.js';
 import YAML from 'yaml';
+import { resolveTicketId } from '../services/ticket-id-resolver.js';
 
 export interface DescribeOptions {
   edit?: boolean;
@@ -25,7 +26,8 @@ export function registerDescribeCommand(program: Command): void {
 
 export async function handleDescribe(ticketId: string, options: DescribeOptions): Promise<void> {
   const config = loadConfig();
-  const paths = resolveTicketPaths(config, ticketId);
+  const { id: canonicalId } = resolveTicketId(config, ticketId);
+  const paths = resolveTicketPaths(config, canonicalId);
   if (options.edit) {
     const target = options.file === 'ticket' ? paths.ticketFile : paths.descriptionFile;
     const editor = process.env.EDITOR ?? process.env.VISUAL;

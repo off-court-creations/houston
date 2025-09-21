@@ -5,6 +5,8 @@ import { collectWorkspaceInventory } from '../../src/services/workspace-inventor
 import { buildWorkspaceAnalytics } from '../../src/services/workspace-analytics.js';
 
 const FIXTURE_ROOT = path.resolve(__dirname, '../fixtures/workspace');
+const EPIC_ID = 'EPIC-11111111-1111-1111-1111-111111111111';
+const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
 
 function makeConfig(workspaceRoot: string): CliConfig {
   return {
@@ -29,9 +31,9 @@ describe('workspace inventory', () => {
   it('collects workspace assets without issues', () => {
     const inventory = collectWorkspaceInventory(config);
     expect(inventory.issues).toHaveLength(0);
-    expect(inventory.tickets.map((ticket) => ticket.id)).toContain('EPIC-1234567890AB');
-    expect(inventory.tickets.map((ticket) => ticket.id)).toContain('ST-1234567890AB');
-    expect(inventory.backlog?.ordered).toContain('ST-1234567890AB');
+    expect(inventory.tickets.map((ticket) => ticket.id)).toContain(EPIC_ID);
+    expect(inventory.tickets.map((ticket) => ticket.id)).toContain(STORY_ID);
+    expect(inventory.backlog?.ordered).toContain(STORY_ID);
     expect(inventory.repos[0]?.id).toBe('repo.checkout');
   });
 
@@ -41,7 +43,7 @@ describe('workspace inventory', () => {
     expect(analytics.summary.totalTickets).toBe(2);
     expect(analytics.summary.ticketTypeCounts).toEqual({ epic: 1, story: 1, subtask: 0, bug: 0 });
     expect(analytics.summary.backlogCount).toBe(1);
-    expect(analytics.repoUsage[0]?.tickets.map((ticket) => ticket.id)).toContain('ST-1234567890AB');
+    expect(analytics.repoUsage[0]?.tickets.map((ticket) => ticket.id)).toContain(STORY_ID);
     expect(analytics.backlog.missing).toHaveLength(0);
     expect(analytics.nextSprint.missing).toHaveLength(0);
   });

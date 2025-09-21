@@ -19,6 +19,7 @@ import { registerConfigCommand } from '../../src/commands/config.js';
 import { registerVersionCommand } from '../../src/commands/version.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
+const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
 
 let tempDir: string;
 
@@ -98,7 +99,7 @@ describe('CLI Phase 4 commands', () => {
   it('updates assignment and status, records branch metadata', async () => {
     const program = buildProgram();
     // Use existing fixture story
-    const ticketId = 'ST-1234567890AB';
+    const ticketId = STORY_ID;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     await program.parseAsync(['node', 'houston', 'assign', ticketId, 'user:cara']);
     await program.parseAsync(['node', 'houston', 'status', ticketId, 'In Review']);

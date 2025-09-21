@@ -8,6 +8,8 @@ import { buildWorkspaceAnalytics, type WorkspaceAnalytics } from '../services/wo
 import { printOutput } from '../lib/printer.js';
 import { c } from '../lib/colors.js';
 import { emptyScope, loadSprint, saveSprintScope, ensureSprintStructure } from '../services/sprint-store.js';
+import { resolveTicketIds } from '../services/ticket-id-resolver.js';
+import { shortenTicketId } from '../lib/id.js';
 
 interface PlanOptions {
   sprint: string;
@@ -20,7 +22,7 @@ export function registerBacklogCommand(program: Command): void {
     .description('Backlog management commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston backlog add ST-123 ST-124\n  $ houston backlog plan --sprint S-2025-10-01_2025-10-14 --take 5\n  $ houston backlog show\n`,
+      `\nExamples:\n  $ houston backlog add ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n  $ houston backlog plan --sprint S-2025-10-01_2025-10-14 --take 5\n  $ houston backlog show\n`,
     );
 
   backlog
@@ -30,7 +32,10 @@ export function registerBacklogCommand(program: Command): void {
     .action(async (ticketIds: string[]) => {
       await handleBacklogAdd(ticketIds);
     })
-    .addHelpText('after', `\nExamples:\n  $ houston backlog add ST-123 ST-124\n`);
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ houston backlog add ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n`,
+    );
 
   backlog
     .command('plan')
@@ -63,8 +68,10 @@ async function handleBacklogAdd(ticketIds: string[]): Promise<void> {
   }
   const config = loadConfig();
   const backlog = loadBacklog(config);
+  const resolution = resolveTicketIds(config, ticketIds);
+  const canonicalIds = resolution.ids;
   const ordered = backlog.ordered ?? [];
-  for (const id of ticketIds) {
+  for (const id of canonicalIds) {
     if (!ordered.includes(id)) {
       ordered.push(id);
     }
@@ -72,7 +79,9 @@ async function handleBacklogAdd(ticketIds: string[]): Promise<void> {
   backlog.ordered = ordered;
   backlog.generated_by = config.metadata.generator;
   saveBacklog(config, backlog);
-  console.log(c.ok(`Added ${ticketIds.length} ticket(s) to backlog`));
+  console.log(
+    c.ok(`Added ${canonicalIds.length} ticket(s) to backlog: ${canonicalIds.map(shortenTicketId).join(', ')}`),
+  );
 }
 
 async function handleBacklogPlan(options: PlanOptions): Promise<void> {
@@ -185,5 +194,5 @@ function renderTicketLine(ticket: { id: string; status?: string; assignee?: stri
   const status = ticket.status ? `[${ticket.status}]` : '';
   const assignee = ticket.assignee ? `@${ticket.assignee}` : '';
   const summary = ticket.summary ?? ticket.title ?? '';
-  return `${ticket.id} ${status} ${assignee} ${summary}`.replace(/\s+/g, ' ').trim();
+  return `${shortenTicketId(ticket.id)} ${status} ${assignee} ${summary}`.replace(/\s+/g, ' ').trim();
 }

@@ -3,12 +3,17 @@ import { loadConfig } from '../config/config.js';
 import { loadTicket, saveTicket } from '../services/ticket-store.js';
 import { resolveActor } from '../utils/runtime.js';
 import { c } from '../lib/colors.js';
+import { shortenTicketId } from '../lib/id.js';
+import { resolveTicketId } from '../services/ticket-id-resolver.js';
 
 export function registerBugCommand(program: Command): void {
   const bug = program
     .command('bug')
     .description('Bug-specific utilities')
-    .addHelpText('after', `\nExamples:\n  $ houston bug log-time BUG-77 30 "triage"\n`);
+    .addHelpText(
+      'after',
+      `\nExamples:\n  $ houston bug log-time BG-44444444-4444-4444-4444-444444444444 30 "triage"\n`,
+    );
 
   bug
     .command('log-time')
@@ -26,8 +31,9 @@ export async function handleLogTime(ticketId: string, minutes: number, note: str
     throw new Error('Minutes must be a positive integer');
   }
   const config = loadConfig();
+  const { id: canonicalId } = resolveTicketId(config, ticketId);
   const actor = resolveActor();
-  const ticket = loadTicket(config, ticketId);
+  const ticket = loadTicket(config, canonicalId);
   if (ticket.type !== 'bug') {
     throw new Error('Time tracking is only supported on bug tickets');
   }
@@ -44,5 +50,5 @@ export async function handleLogTime(ticketId: string, minutes: number, note: str
       date,
     },
   });
-  console.log(c.ok(`Logged ${minutes}m on ${c.id(ticketId)} for ${actor}`));
+  console.log(c.ok(`Logged ${minutes}m on ${c.id(shortenTicketId(canonicalId))} for ${actor}`));
 }
