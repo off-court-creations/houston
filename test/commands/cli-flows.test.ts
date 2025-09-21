@@ -129,10 +129,8 @@ describe('CLI Phase 4 commands', () => {
       'houston',
       'backlog',
       'plan',
-      '--sprint',
-      'S-2024-01-01_2024-01-14',
-      '--take',
-      '1',
+      '--assign',
+      'S-2024-01-01_2024-01-14:ST-22222222-2222-2222-2222-222222222222',
     ]);
     cwdSpy.mockRestore();
     const backlogAfter = YAML.parse(fs.readFileSync(path.join(tempDir, 'backlog', 'backlog.yaml'), 'utf8'));

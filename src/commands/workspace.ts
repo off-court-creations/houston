@@ -442,23 +442,64 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     queue.push('houston check');
     queue.push('houston workspace info');
 
-    const lines: string[] = [];
-    lines.push('Nice — your Houston workspace is ready.');
-    lines.push('Before creating tickets, consider these next steps:');
-    lines.push('  - People: add core users (owner/IC/PM)');
-    lines.push('  - Components: record stable product areas');
-    lines.push('  - Labels: define taxonomy for filtering/reporting');
-    lines.push('  - Repos: register code repositories (remote optional)');
-    lines.push('  - Auth: store a GitHub token for automation');
-    lines.push('');
-    lines.push('Next steps queue:');
+    const checklistRows: string[][] = [
+      [c.bold('Area'), c.bold('Focus')],
+      ['People', 'Add core users (owner/IC/PM)'],
+      ['Components', 'Record stable product areas'],
+      ['Labels', 'Define taxonomy for filtering/reporting'],
+      ['Repos', 'Register code repositories (remote optional)'],
+      ['Auth', 'Store a GitHub token for automation'],
+    ];
+
+    const commandRows: string[][] = [[c.bold('Command'), c.bold('Purpose')]];
     for (const cmd of queue) {
-      lines.push(`  $ ${cmd}`);
+      const purpose = describeSetupCommand(cmd);
+      const formatted = formatSetupCommand(cmd);
+      commandRows.push([formatted, purpose]);
     }
+
+    const lines: string[] = [];
+    lines.push(c.heading('Houston workspace ready'));
+    lines.push(`Workspace scaffolded at ${c.id(targetDir)}`);
+    lines.push('');
+    lines.push(c.subheading('Setup focus'));
+    lines.push(...renderBoxTable(checklistRows));
+    lines.push('');
+    lines.push(c.subheading('Run these next'));
+    lines.push(...renderBoxTable(commandRows));
     await uiOutro(lines.join('\n'));
   } catch (error) {
     sp.stopWithError('Failed to create workspace');
     throw error;
+  }
+}
+
+function formatSetupCommand(cmd: string): string {
+  if (cmd.startsWith('cd ')) {
+    return `$ cd ${c.id(cmd.slice(3))}`;
+  }
+  return `$ ${c.id(cmd)}`;
+}
+
+function describeSetupCommand(cmd: string): string {
+  if (cmd.startsWith('cd ')) return 'Enter the workspace directory';
+  switch (cmd) {
+    case 'houston user add':
+      return 'Capture people in people/users.yaml';
+    case 'houston component add':
+      return 'Register product components';
+    case 'houston label add':
+      return 'Record shared labels';
+    case 'houston auth login github':
+      return 'Store a GitHub token for automation';
+    case 'houston repo add':
+      return 'Add repositories to repos/repos.yaml';
+    case 'houston check':
+      return 'Validate workspace health';
+    case 'houston workspace info':
+      return 'Review workspace snapshot';
+    default:
+      return '';
   }
 }
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
@@ -14,16 +15,25 @@ import { loadTicket } from '../services/ticket-store.js';
 import { loadConfig as loadCliConfig } from '../config/config.js';
 import { buildWorkspaceAnalytics, type WorkspaceAnalytics, type SprintOverview, type SprintPhase } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
-import { formatTable, printOutput } from '../lib/printer.js';
+import { formatTable, printOutput, renderBoxTable } from '../lib/printer.js';
 import { c } from '../lib/colors.js';
 import { resolveTicketIds } from '../services/ticket-id-resolver.js';
 import { shortenTicketId } from '../lib/id.js';
+import {
+  canPrompt as canInteractive,
+  intro as uiIntro,
+  outro as uiOutro,
+  promptSelect as uiSelect,
+  promptText as uiText,
+  spinner as uiSpinner,
+} from '../lib/interactive.js';
 
 interface SprintNewOptions {
   start?: string;
   end?: string;
-  name: string;
+  name?: string;
   goal?: string;
+  interactive?: boolean;
 }
 
 export function registerSprintCommand(program: Command): void {
@@ -40,8 +50,9 @@ export function registerSprintCommand(program: Command): void {
     .description('Create a new sprint shell')
     .option('--start <date>', 'start date YYYY-MM-DD (defaults to today)')
     .option('--end <date>', 'end date YYYY-MM-DD (defaults to 14 days after start)')
-    .requiredOption('--name <name>', 'sprint name')
+    .option('--name <name>', 'sprint name')
     .option('--goal <goal>', 'sprint goal')
+    .option('-i, --interactive', 'prompt for fields when omitted')
     .action(async (options: SprintNewOptions) => {
       await handleSprintNew(options);
     })
@@ -75,20 +86,55 @@ export function registerSprintCommand(program: Command): void {
 }
 
 async function handleSprintNew(options: SprintNewOptions): Promise<void> {
+  let resolved = { ...options };
+  const missing = collectMissingSprintFields(resolved);
+  const interactiveSession = Boolean(resolved.interactive || missing.length > 0);
+
+  if (interactiveSession) {
+    if (!canInteractive()) {
+      throw new Error(`Missing required options: ${missing.join(', ')}. Re-run with --interactive in a terminal.`);
+    }
+    const interactiveResult = await runSprintNewInteractive(resolved);
+    if (interactiveResult.aborted) {
+      return;
+    }
+    resolved = {
+      ...resolved,
+      name: interactiveResult.name,
+      start: interactiveResult.start,
+      end: interactiveResult.end,
+      goal: interactiveResult.goal,
+    };
+
+    const config = loadConfig();
+    const { startDate, endDate } = resolveSprintWindow(resolved);
+    const spinner = uiSpinner();
+    await spinner.start('Creating sprint...');
+    try {
+      const creation = createSprint(config, resolved.name!, startDate, endDate, resolved.goal);
+      spinner.stop('Sprint created');
+      await renderSprintInteractiveOutro(creation, {
+        name: resolved.name!,
+        goal: resolved.goal,
+        startDate,
+        endDate,
+        durationDays: interactiveResult.durationDays,
+      });
+    } catch (error) {
+      spinner.stopWithError('Failed to create sprint');
+      throw error;
+    }
+    return;
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required options: ${missing.join(', ')}`);
+  }
+
   const config = loadConfig();
-  const { startDate, endDate } = resolveSprintWindow(options);
-  const sprintId = generateSprintId(config, startDate, endDate, options.name);
-  ensureSprintStructure(config, sprintId);
-  saveSprintMetadata(config, {
-    id: sprintId,
-    name: options.name,
-    start_date: startDate,
-    end_date: endDate,
-    goal: options.goal,
-    generated_by: config.metadata.generator,
-  });
-  saveSprintScope(config, sprintId, emptyScope(config.metadata.generator));
-  console.log(c.ok(`Created sprint ${c.id(sprintId)}`));
+  const { startDate, endDate } = resolveSprintWindow(resolved);
+  const creation = createSprint(config, resolved.name!, startDate, endDate, resolved.goal);
+  console.log(c.ok(`Created sprint ${c.id(creation.id)}`));
 }
 
 function resolveSprintWindow(options: SprintNewOptions): { startDate: string; endDate: string } {
@@ -98,6 +144,12 @@ function resolveSprintWindow(options: SprintNewOptions): { startDate: string; en
     throw new Error('End date must not be before start date');
   }
   return { startDate: formatDate(start), endDate: formatDate(end) };
+}
+
+function collectMissingSprintFields(opts: SprintNewOptions): string[] {
+  const missing: string[] = [];
+  if (!opts.name) missing.push('--name');
+  return missing;
 }
 
 function generateSprintId(config: ReturnType<typeof loadConfig>, startDate: string, endDate: string, name: string): string {
@@ -112,6 +164,310 @@ function generateSprintId(config: ReturnType<typeof loadConfig>, startDate: stri
   }
   throw new Error('Failed to generate unique sprint id after multiple attempts. Please provide explicit dates.');
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+interface SprintCreationResult {
+  id: string;
+  dir: string;
+  sprintFile: string;
+  scopeFile: string;
+}
+
+interface SprintInteractiveResult {
+  aborted: boolean;
+  name?: string;
+  start?: string;
+  end?: string;
+  goal?: string;
+  durationDays: number;
+}
+
+async function runSprintNewInteractive(initial: SprintNewOptions): Promise<SprintInteractiveResult> {
+  await uiIntro('Create Sprint');
+
+  let name = (initial.name ?? '').trim();
+  name = (await uiText('Sprint name', {
+    required: true,
+    defaultValue: name || undefined,
+    placeholder: 'e.g. Sprint 42',
+    validate: (value) => (value.trim() === '' ? 'Sprint name is required.' : null),
+  })).trim();
+
+  let startDate = safeParseDate(initial.start, '--start') ?? startOfToday();
+  startDate = await promptStartDate(startDate);
+
+  let endDate = safeParseDate(initial.end, '--end') ?? addDays(startDate, 14);
+  endDate = await promptEndDate(startDate, endDate);
+
+  let goal = (initial.goal ?? '').trim();
+  goal = (await uiText('Sprint goal (optional)', {
+    defaultValue: goal,
+    allowEmpty: true,
+  })).trim();
+
+  while (true) {
+    const durationDays = diffDays(startDate, endDate);
+    const summaryRows: string[][] = [
+      [c.bold('Field'), c.bold('Value')],
+      ['Name', name || '(not set)'],
+      ['Start', formatDateDisplay(startDate)],
+      ['End', formatDateDisplay(endDate)],
+      ['Window', `${formatDate(startDate)} → ${formatDate(endDate)} (${formatDuration(durationDays)})`],
+      ['Goal', goal ? goal : '(none)'],
+    ];
+
+    console.log('');
+    console.log(c.subheading('Sprint draft'));
+    for (const line of renderBoxTable(summaryRows)) console.log(line);
+    console.log('');
+
+    const action = await uiSelect('What would you like to do next?', [
+      { label: 'Create sprint', value: 'create' },
+      { label: 'Rename sprint', value: 'name' },
+      { label: 'Adjust start date', value: 'start' },
+      { label: 'Adjust end date', value: 'end' },
+      { label: 'Update goal', value: 'goal' },
+      { label: 'Cancel', value: 'cancel' },
+    ], { defaultValue: 'create' });
+
+    if (action === 'create') {
+      if (!name.trim()) {
+        console.log('Sprint name is required before creating.');
+        continue;
+      }
+      return {
+        aborted: false,
+        name: name.trim(),
+        start: formatDate(startDate),
+        end: formatDate(endDate),
+        goal: goal.trim() === '' ? undefined : goal.trim(),
+        durationDays,
+      };
+    }
+
+    if (action === 'cancel') {
+      await uiOutro('Aborted');
+      return { aborted: true, durationDays: 0 };
+    }
+
+    switch (action) {
+      case 'name':
+        name = (await uiText('Sprint name', {
+          required: true,
+          defaultValue: name,
+          validate: (value) => (value.trim() === '' ? 'Sprint name is required.' : null),
+        })).trim();
+        break;
+      case 'start':
+        startDate = await promptStartDate(startDate);
+        if (endDate.getTime() < startDate.getTime()) {
+          endDate = addDays(startDate, 14);
+        }
+        break;
+      case 'end':
+        endDate = await promptEndDate(startDate, endDate);
+        break;
+      case 'goal':
+        goal = (await uiText('Sprint goal (optional)', {
+          defaultValue: goal,
+          allowEmpty: true,
+        })).trim();
+        break;
+    }
+  }
+}
+
+function createSprint(
+  config: ReturnType<typeof loadConfig>,
+  name: string,
+  startDate: string,
+  endDate: string,
+  goal?: string,
+): SprintCreationResult {
+  const sprintId = generateSprintId(config, startDate, endDate, name);
+  ensureSprintStructure(config, sprintId);
+  const trimmedGoal = goal?.trim() === '' ? undefined : goal?.trim();
+  saveSprintMetadata(config, {
+    id: sprintId,
+    name,
+    start_date: startDate,
+    end_date: endDate,
+    goal: trimmedGoal,
+    generated_by: config.metadata.generator,
+  });
+  saveSprintScope(config, sprintId, emptyScope(config.metadata.generator));
+  const dir = resolveSprintDir(config, sprintId);
+  return {
+    id: sprintId,
+    dir,
+    sprintFile: path.join(dir, 'sprint.yaml'),
+    scopeFile: path.join(dir, 'scope.yaml'),
+  };
+}
+
+async function renderSprintInteractiveOutro(
+  creation: SprintCreationResult,
+  details: { name: string; startDate: string; endDate: string; goal?: string; durationDays: number },
+): Promise<void> {
+  const summaryRows: string[][] = [
+    [c.bold('Field'), c.bold('Value')],
+    ['Sprint', c.id(creation.id)],
+    ['Name', details.name],
+    ['Window', `${formatDateDisplay(parseDate(details.startDate, '--start'))} → ${formatDateDisplay(parseDate(details.endDate, '--end'))}`],
+    ['Duration', formatDuration(details.durationDays)],
+  ];
+  if (details.goal && details.goal.trim() !== '') {
+    summaryRows.push(['Goal', details.goal.trim()]);
+  }
+  const relativeDir = path.relative(process.cwd(), creation.dir) || '.';
+  summaryRows.push(['Directory', relativeDir]);
+  summaryRows.push(['Sprint file', path.relative(process.cwd(), creation.sprintFile)]);
+  summaryRows.push(['Scope file', path.relative(process.cwd(), creation.scopeFile)]);
+
+  const nextCommands: string[][] = [
+    [formatCommandLine(`cd ${relativeDir}`), 'Enter sprint directory'],
+    [formatCommandLine(`houston sprint add ${creation.id} <ticket-id>`), 'Scope tickets into sprint'],
+    [formatCommandLine(`houston backlog plan --sprint ${creation.id}`), 'Plan backlog into sprint'],
+  ];
+
+  const lines: string[] = [];
+  lines.push(c.heading('Sprint created'));
+  lines.push(...renderBoxTable(summaryRows));
+  lines.push('');
+  lines.push(c.subheading('Next steps'));
+  lines.push(...renderBoxTable([[c.bold('Command'), c.bold('Purpose')], ...nextCommands]));
+  await uiOutro(lines.join('\n'));
+}
+
+function safeParseDate(value: string | undefined, flag: string): Date | null {
+  if (!value) return null;
+  try {
+    return parseDate(value, flag);
+  } catch {
+    return null;
+  }
+}
+
+async function promptStartDate(initial: Date): Promise<Date> {
+  const today = startOfToday();
+  const nextMonday = nextWeekday(today, 1);
+  const inSevenDays = addDays(today, 7);
+  const choices = [
+    { label: `${formatDateChoice(today)} (today)`, value: formatDate(today) },
+    { label: `${formatDateChoice(nextMonday)} (next Monday)`, value: formatDate(nextMonday) },
+    { label: `${formatDateChoice(inSevenDays)} (+1 week)`, value: formatDate(inSevenDays) },
+  ];
+  const defaultValue = formatDate(initial);
+  while (true) {
+    let selection = await uiSelect('Select sprint start date', choices, { defaultValue, allowCustom: true });
+    if (selection === '__custom__') {
+      selection = await uiText('Enter start date (YYYY-MM-DD)', {
+        defaultValue,
+        required: true,
+        validate: validateIsoDate,
+      });
+    }
+    if (!selection) continue;
+    try {
+      return parseDate(selection, '--start');
+    } catch (error: any) {
+      console.log(error.message ?? String(error));
+    }
+  }
+}
+
+async function promptEndDate(start: Date, initial: Date): Promise<Date> {
+  const durations = [7, 10, 14, 21];
+  const choices = durations.map((days) => {
+    const candidate = addDays(start, days);
+    return {
+      label: `${formatDateChoice(candidate)} (${formatDuration(days)})`,
+      value: formatDate(candidate),
+    };
+  });
+  const defaultValue = formatDate(initial);
+  while (true) {
+    let selection = await uiSelect('Select sprint end date', choices, { defaultValue, allowCustom: true });
+    if (selection === '__custom__') {
+      selection = await uiText('Enter end date (YYYY-MM-DD)', {
+        defaultValue,
+        required: true,
+        validate: (value) => validateEndDate(value, start),
+      });
+    }
+    if (!selection) continue;
+    try {
+      const candidate = parseDate(selection, '--end');
+      if (candidate.getTime() < start.getTime()) {
+        console.log('End date must be on or after the start date.');
+        continue;
+      }
+      return candidate;
+    } catch (error: any) {
+      console.log(error.message ?? String(error));
+    }
+  }
+}
+
+function validateIsoDate(value: string): string | null {
+  try {
+    parseDate(value, '--start');
+    return null;
+  } catch (error: any) {
+    return error.message ?? 'Invalid date';
+  }
+}
+
+function validateEndDate(value: string, start: Date): string | null {
+  try {
+    const date = parseDate(value, '--end');
+    if (date.getTime() < start.getTime()) {
+      return 'End date must be on or after the start date.';
+    }
+    return null;
+  } catch (error: any) {
+    return error.message ?? 'Invalid date';
+  }
+}
+
+function nextWeekday(date: Date, weekday: number): Date {
+  const day = date.getUTCDay();
+  let offset = (weekday - day + 7) % 7;
+  if (offset === 0) offset = 7;
+  return addDays(date, offset);
+}
+
+function diffDays(start: Date, end: Date): number {
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / MS_PER_DAY));
+}
+
+function formatDateDisplay(date: Date): string {
+  const weekday = WEEKDAY_NAMES[date.getUTCDay()];
+  const month = MONTH_NAMES[date.getUTCMonth()];
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  return `${weekday}, ${month} ${day} ${year}`;
+}
+
+function formatDateChoice(date: Date): string {
+  const weekday = WEEKDAY_NAMES[date.getUTCDay()];
+  const month = MONTH_NAMES[date.getUTCMonth()];
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${weekday} • ${month} ${day}`;
+}
+
+function formatDuration(days: number): string {
+  const value = Math.max(0, days);
+  return `${value} day${value === 1 ? '' : 's'}`;
+}
+
+function formatCommandLine(cmd: string): string {
+  return `$ ${c.id(cmd)}`;
+}
+
 
 function slugify(input: string): string {
   const normalized = input

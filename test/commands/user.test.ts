@@ -80,7 +80,7 @@ describe('user command', () => {
       if (question.startsWith('User id')) return 'user:interactive';
       if (question.startsWith('Display name')) return 'Interactive User';
       if (question.startsWith('Email')) return 'interactive@example.com';
-      if (question.startsWith('Additional roles')) return 'ops';
+      if (question.startsWith('Add roles')) return 'ops';
       if (question.startsWith('Provide email')) return '';
       return '';
     });
@@ -107,5 +107,31 @@ describe('user command', () => {
     expect(output).toContain('user:alice — Alice Dev');
     expect(output).not.toContain('alice@example.com');
     spy.mockRestore();
+  });
+
+  it('skips role selection and uses roles prompt when none exist yet', async () => {
+    const program = buildProgram();
+    const usersFile = path.join(tempDir, 'people', 'users.yaml');
+    fs.writeFileSync(usersFile, 'users:\n', 'utf8');
+
+    promptInputMock.mockImplementation(async (question) => {
+      if (question.startsWith('User id')) return 'user:first';
+      if (question.startsWith('Display name')) return 'First User';
+      if (question.startsWith('Email')) return '';
+      if (question.startsWith('Roles (comma separated')) return 'founder,cto';
+      if (question.startsWith('Provide email')) return '';
+      return '';
+    });
+
+    await program.parseAsync(['node', 'houston', 'user', 'add', '--interactive']);
+
+    expect(promptMultiSelectMock).not.toHaveBeenCalled();
+
+    const users = YAML.parse(fs.readFileSync(usersFile, 'utf8')) as {
+      users: Array<{ id: string; roles?: string[] }>;
+    };
+    const entry = users.users.find((person) => person.id === 'user:first');
+    expect(entry).toBeDefined();
+    expect(entry?.roles).toEqual(['founder', 'cto']);
   });
 });

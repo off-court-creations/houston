@@ -58,6 +58,22 @@ interface ResolveOptions {
   confirmOnCreate?: boolean;
 }
 
+async function promptAndConfirm(initialPrompt: string): Promise<string> {
+  while (true) {
+    const first = (await promptSecret(initialPrompt)).trim();
+    if (first === '') {
+      console.log('Passphrase is required.');
+      continue;
+    }
+    const second = (await promptSecret('Confirm passphrase')).trim();
+    if (first !== second) {
+      console.log('Passphrases did not match. Try again.');
+      continue;
+    }
+    return first;
+  }
+}
+
 function hasStoredEntries(): boolean {
   try {
     if (!fs.existsSync(FILE)) return false;
@@ -73,30 +89,20 @@ async function resolvePassphrase(options: ResolveOptions = {}): Promise<string |
   if (env && env.trim() !== '') return env;
   if (!canPrompt()) return null;
   const existing = hasStoredEntries();
-  const shouldConfirm = options.confirmOnCreate === true && !existing;
-
-  if (!shouldConfirm) {
-    const message = existing
-      ? 'Enter passphrase to decrypt secrets'
+  if (!existing) {
+    const initialPrompt = options.confirmOnCreate === true
+      ? 'Create passphrase to encrypt secrets'
       : 'Set passphrase to encrypt secrets';
-    const pass = await promptSecret(message);
-    const trimmed = pass.trim();
-    return trimmed === '' ? null : trimmed;
+    return promptAndConfirm(initialPrompt);
   }
 
-  while (true) {
-    const first = (await promptSecret('Create passphrase to encrypt secrets')).trim();
-    if (first === '') {
-      console.log('Passphrase is required.');
-      continue;
-    }
-    const second = (await promptSecret('Confirm passphrase')).trim();
-    if (first !== second) {
-      console.log('Passphrases did not match. Try again.');
-      continue;
-    }
-    return first;
+  if (options.confirmOnCreate === true) {
+    return promptAndConfirm('Enter passphrase to decrypt secrets');
   }
+
+  const pass = await promptSecret('Enter passphrase to decrypt secrets');
+  const trimmed = pass.trim();
+  return trimmed === '' ? null : trimmed;
 }
 
 function deriveKey(passphrase: string, salt: Buffer): Buffer {

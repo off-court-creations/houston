@@ -1,0 +1,43 @@
+# Houston CLI Command Coverage
+
+- `houston version` — untested
+- `houston config` — untested
+- `houston check` — tested
+- `houston auth login <provider>` — tested
+- `houston auth logout <provider>` — tested
+- `houston auth status` — tested
+- `houston auth test` — tested
+- `houston backlog add` — untested
+- `houston backlog plan` — tested
+- `houston backlog show` — untested
+- `houston sprint new` — tested
+- `houston sprint add` — untested
+- `houston sprint list` — untested
+- `houston repo list` — tested
+- `houston repo add` — tested
+- `houston hooks install` — untested
+- `houston workspace new` — tested
+- `houston workspace info` — tested
+- `houston user add` — tested
+- `houston user info` — tested
+- `houston user list` — tested
+- `houston component add` — tested
+- `houston component list` — untested
+- `houston label add` — tested
+- `houston label list` — untested
+- `houston ticket new epic` — tested
+- `houston ticket new story` — tested
+- `houston ticket new subtask` — tested
+- `houston ticket new bug` — untested
+- `houston ticket assign` — untested
+- `houston ticket status` — untested
+- `houston ticket label add` — untested
+- `houston ticket label list` — untested
+- `houston ticket link` — untested
+- `houston ticket show` — untested
+- `houston ticket time log` — untested
+- `houston ticket code start` — untested
+- `houston ticket code link` — untested
+- `houston ticket code open-pr` — untested
+- `houston ticket code sync` — untested
+- `houston ticket list` — untested

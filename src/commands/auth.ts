@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import { canPrompt, promptSecret, promptText } from '../lib/interactive.js';
 import { getSecret, setSecret, deleteSecret, listAccounts, backendName } from '../services/secrets.js';
 import { c } from '../lib/colors.js';
+import { renderBoxTable } from '../lib/printer.js';
 
 const SERVICE = 'archway-houston';
 
@@ -66,13 +67,28 @@ export function registerAuthCommand(program: Command): void {
         console.log(JSON.stringify(payload, null, 2));
         return;
       }
-      console.log(`Backend : ${payload.backend}`);
+      const summaryRows = [
+        [c.bold('Field'), c.bold('Value')],
+        ['Backend', payload.backend],
+        ['Stored tokens', accounts.length.toString()],
+      ];
+      console.log(c.heading('Auth Status'));
+      for (const line of renderBoxTable(summaryRows)) console.log(line);
+
       if (accounts.length === 0) {
-        console.log('No stored tokens.');
-      } else {
-        console.log('Stored accounts:');
-        for (const a of accounts) console.log(`  ${a}`);
+        console.log('');
+        console.log(c.warn('No stored tokens. Run `houston auth login github` to add one.'));
+        return;
       }
+
+      const accountRows = [[c.bold('Account'), c.bold('Host')]];
+      for (const account of accounts) {
+        const [provider, host] = account.split('@');
+        accountRows.push([c.id(account), host ?? provider ?? '' ]);
+      }
+      console.log('');
+      console.log(c.subheading('Stored Accounts'));
+      for (const line of renderBoxTable(accountRows)) console.log(line);
     });
 
   auth

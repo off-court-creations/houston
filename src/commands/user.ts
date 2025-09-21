@@ -172,13 +172,19 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
   const roleChoices = Array.from(new Set([...aggregateRoles(people), ...defaultRoles])).sort((a, b) =>
     a.localeCompare(b),
   );
-  const selectedRoles = await promptMultiSelect('Roles (optional)', roleChoices, {
-    defaultValue: defaultRoles,
-    required: false,
-    allowEmpty: true,
-  });
 
-  const newRoleInput = await promptText('Additional roles (comma separated, optional)', {
+  const selectedRoles = roleChoices.length > 0
+    ? await promptMultiSelect('Roles (optional)', roleChoices, {
+        defaultValue: defaultRoles,
+        required: false,
+        allowEmpty: true,
+      })
+    : [...defaultRoles];
+
+  const rolePrompt = roleChoices.length > 0
+    ? 'Add roles (comma separated, optional)'
+    : 'Roles (comma separated, optional)';
+  const newRoleInput = await promptText(rolePrompt, {
     defaultValue: '',
   });
   const additionalRoles = splitList(newRoleInput);
