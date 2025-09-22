@@ -38,6 +38,8 @@ const spinnerFactoryMock = interactive.spinner as vi.MockedFunction<typeof inter
 const { registerBacklogCommand } = await import('../../src/commands/backlog.js');
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
+const SPRINT_ONE = 'S-123e4567-e89b-42d3-a456-426614174000';
+const SPRINT_TWO = 'S-550e8400-e29b-41d4-a716-446655440000';
 
 let tempDir: string;
 const originalCwd = process.cwd;
@@ -89,9 +91,9 @@ describe('backlog plan command', () => {
       'backlog',
       'plan',
       '--assign',
-      'S-2024-07-01_2024-07-14:ST-22222222-2222-2222-2222-222222222222',
+      `${SPRINT_ONE}:ST-22222222-2222-2222-2222-222222222222`,
       '--assign',
-      'S-2024-07-15_2024-07-29:EPIC-11111111-1111-1111-1111-111111111111',
+      `${SPRINT_TWO}:EPIC-11111111-1111-1111-1111-111111111111`,
     ]);
 
     cwdSpy.mockRestore();
@@ -102,7 +104,7 @@ describe('backlog plan command', () => {
 
     const firstSprintScope = YAML.parse(
       fs.readFileSync(
-        path.join(tempDir, 'sprints', 'S-2024-07-01_2024-07-14', 'scope.yaml'),
+        path.join(tempDir, 'sprints', SPRINT_ONE, 'scope.yaml'),
         'utf8',
       ),
     ) as { stories: string[] };
@@ -110,7 +112,7 @@ describe('backlog plan command', () => {
 
     const secondSprintScope = YAML.parse(
       fs.readFileSync(
-        path.join(tempDir, 'sprints', 'S-2024-07-15_2024-07-29', 'scope.yaml'),
+        path.join(tempDir, 'sprints', SPRINT_TWO, 'scope.yaml'),
         'utf8',
       ),
     ) as { epics: string[] };
@@ -135,7 +137,7 @@ describe('backlog plan command', () => {
 
     promptSelectMock
       .mockResolvedValueOnce('assign')
-      .mockResolvedValueOnce('S-2024-01-01_2024-01-14')
+      .mockResolvedValueOnce(SPRINT_TWO)
       .mockResolvedValueOnce('apply');
 
     promptMultiSelectMock.mockImplementationOnce(async (_question, choices: string[]) => choices.slice(0, 2));
@@ -155,7 +157,7 @@ describe('backlog plan command', () => {
 
     const sprintScope = YAML.parse(
       fs.readFileSync(
-        path.join(tempDir, 'sprints', 'S-2024-01-01_2024-01-14', 'scope.yaml'),
+        path.join(tempDir, 'sprints', SPRINT_TWO, 'scope.yaml'),
         'utf8',
       ),
     ) as { stories: string[]; epics: string[] };

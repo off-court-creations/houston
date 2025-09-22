@@ -45,7 +45,7 @@ export function registerBacklogCommand(program: Command): void {
     .description('Backlog management commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston backlog add ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n  $ houston backlog plan --assign S-2025-10-01_2025-10-14:ST-123 --assign S-2025-10-15_2025-10-29:SB-456,SB-789\n  $ houston backlog show\n`,
+      `\nExamples:\n  $ houston backlog add ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n  $ houston backlog plan --assign S-123e4567-e89b-42d3-a456-426614174000:ST-123 --assign S-550e8400-e29b-41d4-a716-446655440000:SB-456,SB-789\n  $ houston backlog show\n`,
     );
 
   backlog
@@ -70,7 +70,7 @@ export function registerBacklogCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston backlog plan --assign S-2025-10-01_2025-10-14:ST-123 --assign S-2025-10-15_2025-10-29:SB-456,SB-789\n  $ houston backlog plan --interactive\n`,
+      `\nExamples:\n  $ houston backlog plan --assign S-123e4567-e89b-42d3-a456-426614174000:ST-123 --assign S-550e8400-e29b-41d4-a716-446655440000:SB-456,SB-789\n  $ houston backlog plan --interactive\n`,
     );
 
   backlog

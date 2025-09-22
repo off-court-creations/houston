@@ -98,7 +98,7 @@ const FILE_TEMPLATES: Array<[string, string]> = [
   ],
   [
     'sprints/README.md',
-    '# Sprints\n\nPlace sprint shells here (e.g. `S-YYYY-MM-DD_YYYY-MM-DD/sprint.yaml`).\n',
+    '# Sprints\n\nPlace sprint shells here (e.g. `S-123e4567-e89b-42d3-a456-426614174000/sprint.yaml`).\n',
   ],
 ];
 

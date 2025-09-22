@@ -21,6 +21,8 @@ const CANONICAL_WORK_ITEM_ID_PATTERN =
   '^(ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 const CANONICAL_BRANCH_PATTERN =
   '^(epic|feat|task|fix)/(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}--[a-z0-9\\-]{1,32}$';
+const CANONICAL_SPRINT_ID_PATTERN =
+  '^S-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 
 fs.mkdirSync(schemaDir, { recursive: true });
 
@@ -94,7 +96,7 @@ const ticketBase = {
     sprint_id: {
       anyOf: [
         { type: 'null' },
-        { type: 'string', pattern: '^S-\\d{4}-\\d{2}-\\d{2}_\\d{4}-\\d{2}-\\d{2}$' },
+        { type: 'string', pattern: CANONICAL_SPRINT_ID_PATTERN },
       ],
     },
     created_at: { type: 'string', format: 'date-time' },
@@ -265,7 +267,7 @@ const sprint = {
   type: 'object',
   required: ['id', 'name', 'start_date', 'end_date'],
   properties: {
-    id: { type: 'string', pattern: '^S-\\d{4}-\\d{2}-\\d{2}_\\d{4}-\\d{2}-\\d{2}$' },
+    id: { type: 'string', pattern: CANONICAL_SPRINT_ID_PATTERN },
     name: { type: 'string', minLength: 1 },
     start_date: { type: 'string', format: 'date' },
     end_date: { type: 'string', format: 'date' },

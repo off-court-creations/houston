@@ -57,6 +57,7 @@ describe('new command interactive mode', () => {
   it('creates an epic via interactive prompts', async () => {
     const program = buildProgram();
     const epicDir = path.join(tempDir, 'tickets', 'EPIC');
+    const backlogFile = path.join(tempDir, 'backlog', 'backlog.yaml');
     const before = new Set(fs.readdirSync(epicDir));
 
     promptInputMock.mockImplementation(async (question) => {
@@ -88,6 +89,9 @@ describe('new command interactive mode', () => {
     expect(ticket.title).toBe('Interactive Epic');
     expect(ticket.labels).toEqual(['initiative']);
     expect(ticket.components).toEqual(['checkout']);
+
+    const backlog = YAML.parse(fs.readFileSync(backlogFile, 'utf8'));
+    expect(backlog.ordered).toContain(ticket.id);
   });
 
   it('registers a new component when provided interactively', async () => {

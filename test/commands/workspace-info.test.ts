@@ -54,7 +54,7 @@ describe('workspace info command', () => {
     expect(normalized).toMatch(/\| Type\s+\|\s+Epic\s+\|\s+\d+\s+\|/);
     expect(normalized).toMatch(/Sprints\s*\n\+/);
     expect(normalized).toMatch(/\| Sprint\s+\|\s+Label\s+\|\s+Status\s+\|\s+Scoped\s+\|/);
-    expect(normalized).toMatch(/\| S-2024-01-01_2024-01-14\s+\|/);
+    expect(normalized).toMatch(/\| S-550e8400-e29b-41d4-a716-446655440000\s+\|/);
 
     spy.mockRestore();
   });

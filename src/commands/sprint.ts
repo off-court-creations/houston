@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import {
@@ -42,7 +42,7 @@ export function registerSprintCommand(program: Command): void {
     .description('Sprint management commands')
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n  $ houston sprint list --status active\n`,
+      `\nExamples:\n  $ houston sprint new --name "Sprint 42" --start 2025-10-01 --end 2025-10-14\n  $ houston sprint add S-550e8400-e29b-41d4-a716-446655440000 ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n  $ houston sprint list --status active\n`,
     );
 
   sprint
@@ -71,7 +71,7 @@ export function registerSprintCommand(program: Command): void {
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston sprint add S-2025-10-01_2025-10-14 ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n`,
+      `\nExamples:\n  $ houston sprint add S-550e8400-e29b-41d4-a716-446655440000 ST-550e8400-e29b-41d4-a716-446655440000 ST-1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f890\n`,
     );
 
   sprint
@@ -152,17 +152,15 @@ function collectMissingSprintFields(opts: SprintNewOptions): string[] {
   return missing;
 }
 
-function generateSprintId(config: ReturnType<typeof loadConfig>, startDate: string, endDate: string, name: string): string {
-  const slug = slugify(name);
+function generateSprintId(config: ReturnType<typeof loadConfig>): string {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const random = crypto.randomBytes(3).toString('hex');
-    const candidate = `S-${startDate}_${endDate}--${slug}-${random}`;
+    const candidate = `S-${randomUUID()}`;
     const dir = resolveSprintDir(config, candidate);
     if (!fs.existsSync(dir)) {
       return candidate;
     }
   }
-  throw new Error('Failed to generate unique sprint id after multiple attempts. Please provide explicit dates.');
+  throw new Error('Failed to generate unique sprint id after multiple attempts. Please retry.');
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -287,7 +285,7 @@ function createSprint(
   endDate: string,
   goal?: string,
 ): SprintCreationResult {
-  const sprintId = generateSprintId(config, startDate, endDate, name);
+  const sprintId = generateSprintId(config);
   ensureSprintStructure(config, sprintId);
   const trimmedGoal = goal?.trim() === '' ? undefined : goal?.trim();
   saveSprintMetadata(config, {
@@ -466,18 +464,6 @@ function formatDuration(days: number): string {
 
 function formatCommandLine(cmd: string): string {
   return `$ ${c.id(cmd)}`;
-}
-
-
-function slugify(input: string): string {
-  const normalized = input
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48);
-  return normalized || 'sprint';
 }
 
 function parseDate(value: string, flag: string): Date {

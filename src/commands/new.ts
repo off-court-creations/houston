@@ -502,7 +502,7 @@ async function finalizeTicketCreation(
 
   createTicket(config, ticket, [history]);
 
-  if (type === 'story' || type === 'bug' || type === 'subtask') {
+  if (type === 'epic' || type === 'story' || type === 'bug' || type === 'subtask') {
     const backlog = loadBacklog(config);
     const ordered = new Set(backlog.ordered ?? []);
     ordered.add(id);

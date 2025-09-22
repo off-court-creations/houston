@@ -20,6 +20,7 @@ import { registerVersionCommand } from '../../src/commands/version.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
 const STORY_ID = 'ST-22222222-2222-2222-2222-222222222222';
+const SPRINT_FIXTURE_ID = 'S-550e8400-e29b-41d4-a716-446655440000';
 
 let tempDir: string;
 
@@ -130,12 +131,14 @@ describe('CLI Phase 4 commands', () => {
       'backlog',
       'plan',
       '--assign',
-      'S-2024-01-01_2024-01-14:ST-22222222-2222-2222-2222-222222222222',
+      `${SPRINT_FIXTURE_ID}:ST-22222222-2222-2222-2222-222222222222`,
     ]);
     cwdSpy.mockRestore();
     const backlogAfter = YAML.parse(fs.readFileSync(path.join(tempDir, 'backlog', 'backlog.yaml'), 'utf8'));
     expect(backlogAfter.ordered?.length).toBe((backlogBefore.ordered?.length ?? 0) - 1);
-    const scope = YAML.parse(fs.readFileSync(path.join(tempDir, 'sprints', 'S-2024-01-01_2024-01-14', 'scope.yaml'), 'utf8'));
+    const scope = YAML.parse(
+      fs.readFileSync(path.join(tempDir, 'sprints', SPRINT_FIXTURE_ID, 'scope.yaml'), 'utf8'),
+    );
     expect(scope.stories?.length ?? 0).toBeGreaterThan(0);
   });
 });

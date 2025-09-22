@@ -38,9 +38,11 @@ describe('config command', () => {
 
     const output = writeSpy.mock.calls.map((call) => call[0]).join('');
     const resolvedRoot = fs.realpathSync(tempDir);
-    expect(output).toContain(`workspace: ${resolvedRoot}`);
-    expect(output).toContain(`tracking root: ${resolvedRoot}`);
-    expect(output).toContain(`schema dir: ${path.join(resolvedRoot, 'schema')}`);
+    expect(output).toContain('Houston Configuration');
+    expect(output).toContain('| Workspace');
+    expect(output).toContain('| Tracking root');
+    expect(output).toContain(resolvedRoot);
+    expect(output).toContain(path.join(resolvedRoot, 'schema'));
 
     writeSpy.mockRestore();
     cwdSpy.mockRestore();

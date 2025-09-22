@@ -18,6 +18,7 @@ const promptSelectMock = promptSelect as vi.MockedFunction<typeof promptSelect>;
 const promptMultiSelectMock = promptMultiSelect as vi.MockedFunction<typeof promptMultiSelect>;
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/workspace');
+const SPRINT_ID_REGEX = /^S-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 let tempDir: string;
 
@@ -65,9 +66,10 @@ afterEach(() => {
       .readdirSync(sprintsRoot)
       .find((entry) => !before.has(entry));
     expect(createdId).toBeDefined();
-    expect(createdId).toMatch(/^S-2024-06-01_2024-06-15--auto-sprint-[a-f0-9]{6}$/);
+    expect(createdId).toMatch(SPRINT_ID_REGEX);
     const sprintDir = path.join(sprintsRoot, createdId!);
     const sprintYaml = YAML.parse(fs.readFileSync(path.join(sprintDir, 'sprint.yaml'), 'utf8'));
+    expect(sprintYaml.id).toBe(createdId);
     expect(sprintYaml.start_date).toBe('2024-06-01');
     expect(sprintYaml.end_date).toBe('2024-06-15');
   });
@@ -93,9 +95,10 @@ afterEach(() => {
       .readdirSync(sprintsRoot)
       .find((entry) => !before.has(entry));
     expect(createdId).toBeDefined();
-    expect(createdId).toMatch(/^S-2024-07-08_2024-07-22--custom-start-[a-f0-9]{6}$/);
+    expect(createdId).toMatch(SPRINT_ID_REGEX);
     const sprintDir = path.join(sprintsRoot, createdId!);
     const sprintYaml = YAML.parse(fs.readFileSync(path.join(sprintDir, 'sprint.yaml'), 'utf8'));
+    expect(sprintYaml.id).toBe(createdId);
     expect(sprintYaml.start_date).toBe('2024-07-08');
     expect(sprintYaml.end_date).toBe('2024-07-22');
   });
@@ -134,10 +137,11 @@ afterEach(() => {
       .readdirSync(sprintsRoot)
       .find((entry) => !before.has(entry));
     expect(createdId).toBeDefined();
-    expect(createdId).toMatch(/^S-2024-06-10_2024-06-24--sprint-42-[a-f0-9]{6}$/);
+    expect(createdId).toMatch(SPRINT_ID_REGEX);
 
     const sprintDir = path.join(sprintsRoot, createdId!);
     const sprintYaml = YAML.parse(fs.readFileSync(path.join(sprintDir, 'sprint.yaml'), 'utf8'));
+    expect(sprintYaml.id).toBe(createdId);
     expect(sprintYaml.start_date).toBe('2024-06-10');
     expect(sprintYaml.end_date).toBe('2024-06-24');
     expect(sprintYaml.goal).toBe('Ship checkout v2');
