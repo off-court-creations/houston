@@ -1,6 +1,6 @@
 {
   "name": "@archway/houston",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Houston — git-native ticketing CLI for schema-enforced workflows.",
   "type": "module",
   "bin": {
