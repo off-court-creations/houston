@@ -425,11 +425,26 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     }
     sp.stop('Workspace created');
 
+    // Show setup focus before questions
+    const checklistRows: string[][] = [
+      [c.bold('Area'), c.bold('Focus')],
+      ['People', 'Add core users (owner/IC/PM)'],
+      ['Components', 'Record stable product areas'],
+      ['Labels', 'Define taxonomy for filtering/reporting'],
+      ['Repos', 'Register code repositories (remote optional)'],
+      ['Auth', 'Store a GitHub token for automation'],
+    ];
+    console.log('');
+    console.log(c.subheading('Setup focus'));
+    for (const line of renderBoxTable(checklistRows)) {
+      console.log(line);
+    }
+
     // Post-setup guidance and optional next steps
     const addUsers = await uiConfirm('Add users now?', true);
     const addComponents = await uiConfirm('Add components now?', true);
     const addLabels = await uiConfirm('Add labels now?', true);
-    const authLogin = await uiConfirm('Login to GitHub for PR/branch automation now?', false);
+    const authLogin = await uiConfirm('Login to GitHub for PR/branch automation now?', true);
     const addRepos = await uiConfirm('Add repositories now?', true);
 
     const queue: string[] = [];
@@ -442,15 +457,6 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     queue.push('houston check');
     queue.push('houston workspace info');
 
-    const checklistRows: string[][] = [
-      [c.bold('Area'), c.bold('Focus')],
-      ['People', 'Add core users (owner/IC/PM)'],
-      ['Components', 'Record stable product areas'],
-      ['Labels', 'Define taxonomy for filtering/reporting'],
-      ['Repos', 'Register code repositories (remote optional)'],
-      ['Auth', 'Store a GitHub token for automation'],
-    ];
-
     const commandRows: string[][] = [[c.bold('Command'), c.bold('Purpose')]];
     for (const cmd of queue) {
       const purpose = describeSetupCommand(cmd);
@@ -461,13 +467,40 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     const lines: string[] = [];
     lines.push(c.heading('Houston workspace ready'));
     lines.push(`Workspace scaffolded at ${c.id(targetDir)}`);
-    lines.push('');
-    lines.push(c.subheading('Setup focus'));
-    lines.push(...renderBoxTable(checklistRows));
-    lines.push('');
-    lines.push(c.subheading('Run these next'));
-    lines.push(...renderBoxTable(commandRows));
     await uiOutro(lines.join('\n'));
+
+    // Offer to automatically run the suggested commands
+    const shouldRun = await uiConfirm('Run the setup commands now?', true);
+    if (shouldRun) {
+      // Execute in the new workspace directory; skip the initial `cd` entry.
+      const execCwd = targetDir;
+      for (const cmd of queue) {
+        if (cmd.startsWith('cd ')) continue;
+        // Provide a clear echo of what runs next
+        const pretty = formatSetupCommand(cmd);
+        console.log(pretty);
+        // Naive split is sufficient for our curated commands
+        const parts = cmd.trim().split(/\s+/);
+        // Reuse current CLI entry point to avoid PATH dependencies on `houston`
+        const argv = parts[0] === 'houston' ? parts.slice(1) : parts;
+        const res = spawnSync('houston', argv, { cwd: execCwd, stdio: 'inherit' });
+        if (res.error) {
+          throw res.error;
+        }
+        if (typeof res.status === 'number' && res.status !== 0) {
+          // Preserve non-zero exit codes from subcommands
+          process.exitCode = res.status;
+          break;
+        }
+      }
+    } else {
+      // If the user prefers manual follow-up, show the command table now.
+      console.log('');
+      console.log(c.subheading('Run these next'));
+      for (const line of renderBoxTable(commandRows)) {
+        console.log(line);
+      }
+    }
   } catch (error) {
     sp.stopWithError('Failed to create workspace');
     throw error;
