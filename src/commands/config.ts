@@ -2,6 +2,8 @@ import { Command } from 'commander';
 import process from 'node:process';
 import { resolveConfig } from '../config/config.js';
 import { createLogger } from '../logger.js';
+import { renderBoxTable } from '../lib/printer.js';
+import { c } from '../lib/colors.js';
 
 const logger = createLogger();
 
@@ -34,13 +36,21 @@ export function registerConfigCommand(program: Command): void {
       }
 
       const config = resolution.config;
-      logger.info(`workspace: ${config.workspaceRoot}`);
-      logger.info(`tracking root: ${config.tracking.root}`);
-      logger.info(`schema dir: ${config.tracking.schemaDir}`);
-      logger.info(`tickets dir: ${config.tracking.ticketsDir}`);
-      logger.info(`backlog dir: ${config.tracking.backlogDir}`);
-      logger.info(`sprints dir: ${config.tracking.sprintsDir}`);
-      logger.info(`generator: ${config.metadata.generator}`);
+      const summaryRows = [
+        [c.bold('Field'), c.bold('Value')],
+        ['Workspace', config.workspaceRoot],
+        ['Tracking root', config.tracking.root],
+        ['Schema dir', config.tracking.schemaDir],
+        ['Tickets dir', config.tracking.ticketsDir],
+        ['Backlog dir', config.tracking.backlogDir],
+        ['Sprints dir', config.tracking.sprintsDir],
+        ['Generator', config.metadata.generator],
+        ['Version', resolution.version],
+      ];
+      logger.info(c.heading('Houston Configuration'));
+      for (const line of renderBoxTable(summaryRows)) {
+        logger.info(line);
+      }
     })
     .addHelpText(
       'after',

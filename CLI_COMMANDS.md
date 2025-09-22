@@ -1,7 +1,7 @@
 # Houston CLI Command Coverage
 
-- `houston version` — untested
-- `houston config` — untested
+- `houston version` — tested
+- `houston config` — tested
 - `houston check` — tested
 - `houston auth login <provider>` — tested
 - `houston auth logout <provider>` — tested
