@@ -4,7 +4,8 @@
   "description": "Houston — git-native ticketing CLI for schema-enforced workflows.",
   "type": "module",
   "bin": {
-    "houston": "dist/index.js"
+    "houston": "dist/index.js",
+    "houston-complete": "dist/complete.js"
   },
   "files": [
     "dist",

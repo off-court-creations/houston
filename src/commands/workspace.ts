@@ -17,6 +17,7 @@ import {
 import { collectWorkspaceInventory, TicketType } from '../services/workspace-inventory.js';
 import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, spinner as uiSpinner } from '../lib/interactive.js';
 import { shortenTicketId } from '../lib/id.js';
+import { setDefaultWorkspaceIfUnset } from '../services/user-config.js';
 
 interface JsonOption {
   json?: boolean;
@@ -144,6 +145,7 @@ export function registerWorkspaceCommand(program: Command): void {
         initGitRepository(targetDir);
       }
       console.log(c.ok(`Initialized Houston workspace at ${targetDir}`));
+      try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
     })
     .addHelpText(
       'after',
@@ -424,6 +426,7 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
       initGitRepository(targetDir);
     }
     sp.stop('Workspace created');
+    try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
 
     // Show setup focus before questions
     const checklistRows: string[][] = [

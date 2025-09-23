@@ -1,0 +1,16 @@
+#compdef houston
+
+_houston() {
+  local -a suggestions
+  local -a args
+  args=(${words})
+  if (( ${+commands[houston-complete]} )); then
+    suggestions=(${(f)"$(HOUSTON_NO_INTERACTIVE=1 houston-complete --shell zsh --cword $CURRENT -- ${args[@]} 2>/dev/null)"})
+    _describe 'values' suggestions
+  else
+    _arguments '*: :->noop'
+  fi
+}
+
+compdef _houston houston
+

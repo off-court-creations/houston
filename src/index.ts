@@ -2,6 +2,8 @@
 import { Command } from 'commander';
 import process from 'node:process';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { registerCheckCommand } from './commands/check.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerVersionCommand } from './commands/version.js';
@@ -17,6 +19,9 @@ import { registerRepoCommand } from './commands/repo.js';
 import { registerAuthCommand } from './commands/auth.js';
 import { createLogger } from './logger.js';
 import { setEnabled as setColorEnabled } from './lib/colors.js';
+import { areCompletionsInstalled, maybeWarnAboutCompletions } from './services/shell-completions.js';
+import { ensureUserConfigExists } from './services/user-config.js';
+import { registerDisableCompletionsWarningCommand } from './commands/warnings.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json');
@@ -76,10 +81,20 @@ async function main(): Promise<void> {
   registerUserCommand(program);
   registerComponentCommand(program);
   registerLabelCommand(program);
+  registerDisableCompletionsWarningCommand(program);
 
   const sanitizedArgv = sanitizeArgv(process.argv);
 
   try {
+    try { ensureUserConfigExists(); } catch {}
+    // If completions appear to be installed, do not check config or warn.
+    const completionsOk = areCompletionsInstalled();
+    if (!completionsOk) {
+      const distDir = fileURLToPath(new URL('.', import.meta.url));
+      const pkgRoot = path.resolve(distDir, '..');
+      const completionsDir = path.join(pkgRoot, 'hooks', 'completions');
+      await maybeWarnAboutCompletions(program, completionsDir);
+    }
     await program.parseAsync(sanitizedArgv);
   } catch (error) {
     logger.error(String(error instanceof Error ? error.message : error));
