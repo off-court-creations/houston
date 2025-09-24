@@ -44,39 +44,30 @@ describe('secrets passphrase flow', () => {
     await secrets.setSecret('svc', 'acct', 'value');
 
     expect(promptSecretMock).toHaveBeenCalledTimes(4);
-    expect(promptSecretMock.mock.calls[0]?.[0]).toContain('Create passphrase');
+    expect(promptSecretMock.mock.calls[0]?.[0]).toContain('Create a passphrase');
     expect(promptSecretMock.mock.calls[1]?.[0]).toContain('Confirm passphrase');
-    expect(promptSecretMock.mock.calls[2]?.[0]).toContain('Create passphrase');
+    expect(promptSecretMock.mock.calls[2]?.[0]).toContain('Create a passphrase');
     expect(promptSecretMock.mock.calls[3]?.[0]).toContain('Confirm passphrase');
     expect(writeSpy).toHaveBeenCalled();
   });
 
-  it('requires confirmation when establishing a new passphrase from getSecret', async () => {
-    promptSecretMock
-      .mockResolvedValueOnce('secret-three')
-      .mockResolvedValueOnce('secret-three');
-
+  it('does not prompt when no entry exists for getSecret', async () => {
     const result = await secrets.getSecret('svc', 'acct');
-
     expect(result).toBeNull();
-    expect(promptSecretMock).toHaveBeenCalledTimes(2);
-    expect(promptSecretMock.mock.calls[0]?.[0]).toContain('Set passphrase');
-    expect(promptSecretMock.mock.calls[1]?.[0]).toContain('Confirm passphrase');
+    expect(promptSecretMock).not.toHaveBeenCalled();
   });
 
-  it('confirms passphrase when storing new secret with existing entries', async () => {
+  it('prompts once to unlock when entries exist', async () => {
     existsSpy.mockReturnValue(true);
     readSpy.mockReturnValue(
       JSON.stringify({ v: 1, entries: { 'svc:existing': { salt: 'c2FsdA==', iv: 'aXY=', data: 'ZGF0YQ==' } } }),
     );
     promptSecretMock
-      .mockResolvedValueOnce('secret-four')
       .mockResolvedValueOnce('secret-four');
 
     await secrets.setSecret('svc', 'acct', 'value');
 
-    expect(promptSecretMock).toHaveBeenCalledTimes(2);
-    expect(promptSecretMock.mock.calls[0]?.[0]).toContain('Enter passphrase to decrypt secrets');
-    expect(promptSecretMock.mock.calls[1]?.[0]).toContain('Confirm passphrase');
+    expect(promptSecretMock).toHaveBeenCalledTimes(1);
+    expect(promptSecretMock.mock.calls[0]?.[0]).toContain('Enter passphrase to unlock secure store');
   });
 });

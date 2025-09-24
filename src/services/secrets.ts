@@ -90,17 +90,12 @@ async function resolvePassphrase(options: ResolveOptions = {}): Promise<string |
   if (!canPrompt()) return null;
   const existing = hasStoredEntries();
   if (!existing) {
-    const initialPrompt = options.confirmOnCreate === true
-      ? 'Create passphrase to encrypt secrets'
-      : 'Set passphrase to encrypt secrets';
+    const initialPrompt = 'Create a passphrase to protect tokens';
     return promptAndConfirm(initialPrompt);
   }
 
-  if (options.confirmOnCreate === true) {
-    return promptAndConfirm('Enter passphrase to decrypt secrets');
-  }
-
-  const pass = await promptSecret('Enter passphrase to decrypt secrets');
+  // Existing store: ask once to unlock
+  const pass = await promptSecret('Enter passphrase to unlock secure store');
   const trimmed = pass.trim();
   return trimmed === '' ? null : trimmed;
 }
@@ -149,12 +144,12 @@ export async function getSecret(service: string, account: string): Promise<strin
   if (kt) {
     return kt.getPassword(service, account);
   }
-  const pass = await resolvePassphrase();
-  if (!pass) return null;
   const db = readEncFile();
   const key = `${service}:${account}`;
   const entry = db.entries[key];
   if (!entry) return null;
+  const pass = await resolvePassphrase();
+  if (!pass) return null;
   return decrypt(pass, entry);
 }
 
@@ -176,11 +171,11 @@ export async function deleteSecret(service: string, account: string): Promise<bo
   if (kt) {
     return kt.deletePassword(service, account);
   }
-  const pass = await resolvePassphrase();
-  if (!pass) return false;
   const db = readEncFile();
   const key = `${service}:${account}`;
   if (db.entries[key]) {
+    const pass = await resolvePassphrase();
+    if (!pass) return false;
     delete db.entries[key];
     writeEncFile(db);
     return true;

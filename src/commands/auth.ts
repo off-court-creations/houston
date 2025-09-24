@@ -45,8 +45,9 @@ export function registerAuthCommand(program: Command): void {
       // Overwrite guard for existing labeled account
       let accountLabel = label;
       while (true) {
-        const existing = await getSecret(SERVICE, `github@${host}#${accountLabel}`);
-        if (!existing) break;
+        const accounts = await listAccounts(SERVICE);
+        const exists = accounts.includes(`github@${host}#${accountLabel}`);
+        if (!exists) break;
         if (!canPrompt()) {
           throw new Error(`Account github@${host}#${accountLabel} already exists. Use a different --label or run: houston auth logout github --host ${host} --label ${accountLabel}`);
         }
