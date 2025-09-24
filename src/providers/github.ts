@@ -3,6 +3,7 @@ import type { Provider, BranchParams, PullRequestParams } from './types.js';
 import type { RepoConfig } from '../services/repo-registry.js';
 import { parseRemote } from '../services/repo-registry.js';
 import { getSecret } from '../services/secrets.js';
+import { loadConfig } from '../config/config.js';
 
 interface GitHubRemote {
   owner: string;
@@ -95,6 +96,20 @@ export class GitHubProvider implements Provider {
 
 }
 async function resolveTokenAsync(host: string): Promise<string> {
+  try {
+    const cfg = loadConfig();
+    const label = cfg.auth?.github?.label;
+    const authHost = cfg.auth?.github?.host ?? host;
+    if (label) {
+      const acc = `github@${authHost}#${label}`;
+      const stored = await getSecret('archway-houston', acc);
+      if (stored) return stored;
+    }
+  } catch {}
+  // Fallbacks: labeled default, then unlabeled
+  const defaultAcc = `github@${host}#default`;
+  const storedDefault = await getSecret('archway-houston', defaultAcc);
+  if (storedDefault) return storedDefault;
   const stored = await getSecret('archway-houston', `github@${host}`);
   if (stored) return stored;
   throw new Error(

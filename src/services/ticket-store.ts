@@ -4,6 +4,7 @@ import type { CliConfig } from '../config/config.js';
 import { ensureSignature } from '../lib/signature.js';
 import { writeYamlFile, readYamlFile } from '../lib/yaml.js';
 import { appendHistoryEvent, type HistoryEvent } from '../lib/history.js';
+import { recordChange } from './mutation-tracker.js';
 import { getTicketTypeFromId } from '../lib/id.js';
 import { resolveTicketPaths } from './path-resolver.js';
 
@@ -57,6 +58,7 @@ Provide details for ${ticket.id}.
     }
     appendHistoryEvent(paths.historyFile, event as HistoryEvent);
   }
+  recordChange('tickets');
   return ticket;
 }
 
@@ -81,6 +83,7 @@ export function saveTicket(
     const actorToUse = event.actor ?? actor;
     appendHistoryEvent(paths.historyFile, { ...event, actor: actorToUse } as HistoryEvent);
   }
+  recordChange('tickets');
   return ticket;
 }
 

@@ -12,6 +12,7 @@ import { hasPerson, upsertPerson } from '../services/people-store.js';
 import { ensureComponentRegistered, normalizeComponentList } from '../services/component-manager.js';
 import { loadComponents } from '../services/component-store.js';
 import { createTicket, type TicketRecord } from '../services/ticket-store.js';
+import { normalizeUserId } from '../utils/user-id.js';
 import { resolveActor, resolveTimestamp } from '../utils/runtime.js';
 import type { HistoryEvent } from '../lib/history.js';
 import { c } from '../lib/colors.js';
@@ -118,6 +119,7 @@ function collectMissingFields(type: TicketRecord['type'], opts: NewOptions): str
   if ((type === 'subtask' || type === 'bug') && (opts.storyPoints === undefined || Number.isNaN(opts.storyPoints))) {
     missing.push('--story-points');
   }
+  // due_date is required by schema; if not provided, we'll auto-default later in finalize
   return missing;
 }
 
@@ -440,11 +442,13 @@ async function finalizeTicketCreation(
     throw new Error('At least one component required');
   }
   const labels = splitList(opts.labels);
-  const approvers = splitList(opts.approvers);
+  const approvers = splitList(opts.approvers).map((id) => normalizeUserId(id));
 
   const descriptionPath = './description.md';
   const status = opts.status ?? DEFAULT_STATUS;
 
+  // Normalize assignee id
+  opts.assignee = normalizeUserId(opts.assignee!);
   await ensureAssigneeTracked(config, opts.assignee!, opts, inventory, interactiveSession);
   await ensureComponentsTracked(config, components, inventory, interactiveSession);
 
@@ -472,9 +476,8 @@ async function finalizeTicketCreation(
     },
   } as TicketRecord;
 
-  if (opts.dueDate) {
-    (ticket as Record<string, unknown>).due_date = opts.dueDate;
-  }
+  // Always set due_date (schema-required); default to +14 days if not provided
+  (ticket as Record<string, unknown>).due_date = opts.dueDate ?? defaultDueDate();
   if (opts.priority && type !== 'epic') {
     (ticket as Record<string, unknown>).priority = opts.priority;
   }
@@ -517,4 +520,14 @@ async function finalizeTicketCreation(
       `Created ${c.id(shortenTicketId(id))} at ${path.relative(process.cwd(), resolveTicketPaths(config, id).ticketFile)}`,
     ),
   );
+}
+
+function defaultDueDate(): string {
+  const now = new Date();
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const due = new Date(now.getTime() + 14 * msPerDay);
+  const y = due.getUTCFullYear();
+  const m = String(due.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(due.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }

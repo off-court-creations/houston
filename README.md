@@ -1,6 +1,6 @@
 # `@archway/houston`
 
-Git‑native ticketing and planning from the command line. Houston keeps tickets, backlog, and sprints as YAML in git and provides schema‑aware commands to create, plan, and sync work across repos. When credentials are configured, Houston also coordinates branches and PRs.
+Git‑native ticketing and planning from the command line. Houston stores tickets, backlog, and sprints as YAML in git, validates them with schemas, and helps you ship with predictable, automatable workflows. With credentials configured, Houston also links branches and PRs.
 
 ## Quick Start
 
@@ -10,6 +10,10 @@ npm run dev -- help
 
 # Create a new workspace (scaffold folders and schemas)
 npm run dev -- workspace new my-workspace
+
+# Create a new workspace on GitHub (and push)
+npm run dev -- workspace new ./tracking \
+  --create-remote my-org/tracking --host github.com --private --push
 
 # Create and list tickets
 npm run dev -- ticket new story --interactive
@@ -21,7 +25,7 @@ npm run dev -- check --format table
 
 Tip: Once built (`npm run build`), you can run the compiled binary with `node dist/index.js <cmd>` or symlink with `npm link` to invoke `houston` directly.
 
-## Everyday Tasks (Examples)
+## Everyday Tasks
 
 ```sh
 # Assign and move status
@@ -40,6 +44,34 @@ houston ticket code open-pr ST-...
 houston workspace info --json
 ```
 
+## VCS Automation
+
+Houston acts like a careful teammate around your Version Control System:
+
+- Pre‑pull: Before mutating commands, Houston runs `git pull --rebase` when you’re on a clean branch with an upstream. Skip with `--no-sync` or `HOUSTON_NO_SYNC=1`.
+- Auto‑commit: After a command changes workspace files, Houston stages the tracking root and commits a simple message like `houston: update [tickets, backlog]` with a `Change-Types:` trailer.
+- Auto‑push: If a remote/upstream exists, Houston pushes by default. Override with `--push`, `--no-push`, or workspace config.
+- Read‑only commands (e.g., `workspace info`, `ticket list/show`) skip pre‑pull and auto‑commit.
+
+Workspace new (interactive):
+
+- When creating a GitHub remote, Houston can list owners from your PAT — “Me (<login>)” plus your orgs — so you can choose who owns the new repo.
+
+Workspace config (`houston.config.yaml`):
+
+```yaml
+git:
+  autoCommit: true          # default
+  autoPush: auto            # push when remote/upstream exists
+  autoPull: true            # pre-pull before mutating commands
+  pullRebase: true
+```
+
+Environment:
+
+- `HOUSTON_NO_SYNC=1` disables pre‑pull.
+- `HOUSTON_GIT_AUTO=0` disables auto‑commit.
+
 ## Key Concepts
 
 - Git‑native data: YAML under `people/`, `repos/`, `tickets/`, `backlog/`, `sprints/` is the source of truth.
@@ -56,7 +88,7 @@ Houston ships many subcommands for tickets, backlog, sprints, repos, and workspa
 - `houston help`, `houston <group> --help`, or `houston <group> <cmd> --help`
 - Command reference: see `CLI_COMMANDS.md`
 
-Common commands:
+Common commands
 
 - `ticket new <type>` — create epics/stories/subtasks/bugs (supports `--interactive`).
 - `ticket list [filters]` — filter by `--type`, `--status`, `--assignee`, `--label`, etc.
@@ -66,6 +98,11 @@ Common commands:
 - `repo add|list` — track repos (enable automation via `houston auth login`).
 - `check` — validate files against schemas and guardrails.
 - `hooks install` — add a `Ticket: <ID>` trailer to commit messages.
+
+Workspace creation (with remotes)
+
+- `workspace new ./tracking --remote git@github.com:owner/repo.git --push`
+- `workspace new ./tracking --create-remote owner/repo --host github.com --private --push`
 
 ## Development
 
@@ -101,3 +138,9 @@ npm run schemas
 - Use `--format json` on list/info commands for precise output.
 - Run `houston check` to surface schema or workflow issues in your workspace.
 - If a command fails validation, the error will reference the offending file and schema rule.
+
+## Why Houston
+
+- Git as the source of truth keeps planning data diffable, reviewable, and automatable.
+- Predictable schemas and IDs make it easy to integrate with your tooling.
+- Built for teams: auto‑pull, auto‑commit, and auto‑push reduce sync friction in shared workspaces.

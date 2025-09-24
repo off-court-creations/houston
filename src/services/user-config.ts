@@ -5,6 +5,7 @@ import path from 'node:path';
 export interface UserConfig {
   workspace_path?: string;
   completions_warning_disabled?: boolean;
+  auth_accounts?: string[];
 }
 
 interface Resolution {
@@ -77,6 +78,12 @@ function parseToml(text: string): UserConfig {
       out.workspace_path = value;
     } else if (key === 'completions_warning_disabled') {
       out.completions_warning_disabled = /^true$/i.test(value);
+    } else if (key === 'auth_accounts') {
+      const list = value.replace(/^"|"$/g, '');
+      out.auth_accounts = list
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
     }
   }
   return out;
@@ -95,5 +102,31 @@ function formatToml(config: UserConfig): string {
   if (typeof config.completions_warning_disabled === 'boolean') {
     lines.push(`completions_warning_disabled = ${config.completions_warning_disabled ? 'true' : 'false'}`);
   }
+  if (Array.isArray(config.auth_accounts) && config.auth_accounts.length > 0) {
+    const joined = config.auth_accounts.join(',');
+    lines.push(`auth_accounts = ${escapeTomlString(joined)}`);
+  }
   return lines.join('\n') + '\n';
+}
+
+export function addAuthAccount(account: string): void {
+  const cfg = readUserConfig();
+  const set = new Set(cfg.auth_accounts ?? []);
+  set.add(account);
+  cfg.auth_accounts = Array.from(set.values()).sort();
+  writeUserConfig(cfg);
+}
+
+export function removeAuthAccount(account: string): void {
+  const cfg = readUserConfig();
+  const list = new Set(cfg.auth_accounts ?? []);
+  if (list.delete(account)) {
+    cfg.auth_accounts = Array.from(list.values()).sort();
+    writeUserConfig(cfg);
+  }
+}
+
+export function listAuthAccounts(): string[] {
+  const cfg = readUserConfig();
+  return cfg.auth_accounts ?? [];
 }

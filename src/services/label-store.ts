@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { recordChange } from './mutation-tracker.js';
 
 interface LabelsFile {
   labels?: string[];
@@ -32,9 +33,9 @@ export function addLabels(config: CliConfig, values: string[]): void {
   }
   const sorted = Array.from(existing.values()).sort((a, b) => a.localeCompare(b));
   writeYamlFile(file, { [LABELS_KEY]: sorted });
+  recordChange('labels');
 }
 
 export function labelExists(config: CliConfig, value: string): boolean {
   return loadLabels(config).includes(value);
 }
-

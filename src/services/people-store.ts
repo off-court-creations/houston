@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { stripUserPrefix } from '../utils/user-id.js';
+import { recordChange } from './mutation-tracker.js';
 
 export interface PersonRecord {
   id: string;
@@ -44,8 +46,11 @@ export function upsertPerson(config: CliConfig, person: PersonRecord): void {
 
   people.sort((a, b) => a.id.localeCompare(b.id));
   writeYamlFile(file, { users: people });
+  recordChange('people');
 }
 
 export function hasPerson(config: CliConfig, userId: string): boolean {
-  return loadPeople(config).some((entry) => entry.id === userId);
+  const target = userId;
+  const targetStripped = stripUserPrefix(userId);
+  return loadPeople(config).some((entry) => entry.id === target || stripUserPrefix(entry.id) === targetStripped);
 }

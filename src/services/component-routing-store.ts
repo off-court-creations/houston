@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { recordChange } from './mutation-tracker.js';
 
 interface ComponentRoutingFile {
   routes?: Record<string, string[]>;
@@ -55,4 +56,5 @@ export function setComponentRepos(config: CliConfig, componentId: string, repoId
     delete routing.routes[componentId];
   }
   writeYamlFile(file, routing);
+  recordChange('routing');
 }

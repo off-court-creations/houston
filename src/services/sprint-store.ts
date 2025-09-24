@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { ensureSignature } from '../lib/signature.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { recordChange } from './mutation-tracker.js';
 
 export interface SprintMetadata extends Record<string, unknown> {
   id: string;
@@ -62,6 +63,7 @@ export function saveSprintMetadata(config: CliConfig, sprint: SprintMetadata): v
   const sprintFile = path.join(dir, 'sprint.yaml');
   const payload = ensureSignature(sprint, config.metadata.generator);
   writeYamlFile(sprintFile, payload);
+  recordChange('sprints');
 }
 
 export function saveSprintScope(config: CliConfig, sprintId: string, scope: SprintScope): void {
@@ -69,6 +71,7 @@ export function saveSprintScope(config: CliConfig, sprintId: string, scope: Spri
   const scopeFile = path.join(dir, 'scope.yaml');
   const payload = ensureSignature(scope, config.metadata.generator);
   writeYamlFile(scopeFile, payload);
+  recordChange('sprints');
 }
 
 export function emptyScope(generator: string): SprintScope {

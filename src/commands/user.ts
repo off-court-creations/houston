@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import { loadConfig, type CliConfig } from '../config/config.js';
 import { promptText, promptMultiSelect, promptSelect, promptConfirm, canPrompt as canInteractive } from '../lib/interactive.js';
 import { loadPeople, upsertPerson, hasPerson, type PersonRecord } from '../services/people-store.js';
+import { normalizeUserId, isValidUserId } from '../utils/user-id.js';
 import { c } from '../lib/colors.js';
 import { renderBoxTable } from '../lib/printer.js';
 
@@ -97,7 +98,7 @@ async function handleAddUser(opts: AddUserOptions): Promise<void> {
   }
 
   const firstPerson: PersonRecord = {
-    id: resolved.id!,
+    id: normalizeUserId(resolved.id!),
     name: resolved.name?.trim() || undefined,
     email: resolved.email?.trim() || undefined,
     roles: splitList(resolved.roles),
@@ -117,7 +118,7 @@ async function handleAddUser(opts: AddUserOptions): Promise<void> {
       }
       const next = await runInteractiveAddUser({}, config);
       const person: PersonRecord = {
-        id: next.id!,
+        id: normalizeUserId(next.id!),
         name: next.name?.trim() || undefined,
         email: next.email?.trim() || undefined,
         roles: splitList(next.roles),
@@ -149,9 +150,13 @@ async function runInteractiveAddUser(opts: AddUserOptions, config: CliConfig): P
   const id = await promptText('User id (e.g. user:alice)', {
     defaultValue: opts.id,
     required: true,
-    validate: (value) => (value.trim() === '' ? 'User id is required.' : null),
+    validate: (value) => {
+      const v = String(value).trim();
+      const normalized = normalizeUserId(v);
+      return isValidUserId(normalized) ? null : 'Use letters, digits, underscore, hyphen';
+    },
   });
-  next.id = id.trim();
+  next.id = normalizeUserId(id);
 
   const existing = people.find((person) => person.id === next.id);
   const defaultName = existing?.name ?? opts.name;

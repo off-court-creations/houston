@@ -15,7 +15,7 @@ import {
   WorkspaceAnalytics,
 } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory, TicketType } from '../services/workspace-inventory.js';
-import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, spinner as uiSpinner } from '../lib/interactive.js';
+import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, promptSelect as uiSelect, spinner as uiSpinner } from '../lib/interactive.js';
 import { shortenTicketId } from '../lib/id.js';
 import { setDefaultWorkspaceIfUnset } from '../services/user-config.js';
 
@@ -47,6 +47,13 @@ interface CreateWorkspaceOptions {
   force?: boolean;
   git?: boolean;
   interactive?: boolean;
+  remote?: string;
+  createRemote?: string;
+  host?: string;
+  private?: boolean;
+  public?: boolean;
+  push?: boolean;
+  authLabel?: string;
 }
 
 const WORKSPACE_GENERATOR = 'houston@workspace-create';
@@ -55,7 +62,7 @@ const IGNORED_DIRECTORY_ENTRIES = new Set(['.', '..', '.git', '.gitignore', '.gi
 const FILE_TEMPLATES: Array<[string, string]> = [
   [
     'houston.config.yaml',
-    `tracking:\n  root: .\n  schemaDir: schema\n  ticketsDir: tickets\n  backlogDir: backlog\n  sprintsDir: sprints\n`,
+    `tracking:\n  root: .\n  schemaDir: schema\n  ticketsDir: tickets\n  backlogDir: backlog\n  sprintsDir: sprints\n\ngit:\n  autoCommit: true\n  autoPush: auto\n  autoPull: true\n  pullRebase: true\n\n# auth:\n#   github:\n#     host: github.com\n#     label: default\n`,
   ],
   [
     'backlog/backlog.yaml',
@@ -129,6 +136,14 @@ export function registerWorkspaceCommand(program: Command): void {
     .option('--no-git', 'skip git initialization')
     .option('-i, --interactive', 'run guided setup even when arguments are provided')
     .option('--no-interactive', 'run non-interactively (bypass prompts)')
+    .option('--remote <url>', 'add remote origin with the provided git URL')
+    .option('--create-remote <owner/repo>', 'create a GitHub repo and set as origin')
+    .option('--host <host>', 'GitHub host (default: github.com)')
+    .option('--private', 'create GitHub repo as private (default)')
+    .option('--public', 'create GitHub repo as public')
+    .option('--auth-label <label>', 'auth account label to use (e.g., work, hobby)')
+    .option('--push', 'push initial commit to remote (default when remote configured)')
+    .option('--no-push', 'do not push initial commit')
     .action((directory: string, options: CreateWorkspaceOptions) => {
       // Run wizard by default when in a TTY, unless explicitly disabled.
       const shouldInteractive = options.interactive !== false && canInteractive();
@@ -143,13 +158,43 @@ export function registerWorkspaceCommand(program: Command): void {
       scaffoldWorkspace(targetDir, options.force === true);
       if (options.git !== false) {
         initGitRepository(targetDir);
+        try { copyBundledSchemas(path.join(targetDir, 'schema')); } catch {}
+        createInitialCommit(targetDir);
+        if (options.remote) {
+          setRemoteOrigin(targetDir, options.remote);
+          // If auth label provided, persist workspace auth metadata
+          if (options.authLabel) {
+            const host = (options.host ?? 'github.com').trim();
+            const account = `github@${host}#${options.authLabel.trim()}`;
+            try { upsertWorkspaceAuth(targetDir, { provider: 'github', host, account }); } catch {}
+          }
+        } else if (options.createRemote) {
+          const host = (options.host ?? 'github.com').trim();
+          const isPrivate = options.public ? false : true;
+          const account = options.authLabel ? `github@${host}#${options.authLabel.trim()}` : undefined;
+          return createGitHubRepoFromArg(host, options.createRemote, isPrivate, account)
+            .then((url) => {
+              setRemoteOrigin(targetDir, url);
+              if (account) {
+                try { upsertWorkspaceAuth(targetDir, { provider: 'github', host, account }); } catch {}
+              }
+              const shouldPush = resolveInitialPushDecision(targetDir, options);
+              if (shouldPush) pushInitial(targetDir);
+              console.log(c.ok(`Initialized Houston workspace at ${targetDir}`));
+              try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
+            });
+        }
+        const shouldPush = resolveInitialPushDecision(targetDir, options);
+        if (shouldPush) {
+          pushInitial(targetDir);
+        }
       }
       console.log(c.ok(`Initialized Houston workspace at ${targetDir}`));
       try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston workspace new\n  $ houston workspace new ./tracking --no-git\n  $ houston workspace new ./tracking --force\n  $ houston workspace new ./tracking --no-interactive --force\nNotes:\n  - Creates a directory structure with schema, tickets, backlog, sprints, repos, people, taxonomies.\n  - Use --force to overwrite existing files.\n  - Use --no-interactive to bypass the wizard in TTY contexts.\n`,
+      `\nExamples:\n  $ houston workspace new\n  $ houston workspace new ./tracking --no-git\n  $ houston workspace new ./tracking --force\n  $ houston workspace new ./tracking --no-interactive --force\n  $ houston workspace new ./tracking --remote git@github.com:owner/repo.git --push\n  $ houston workspace new ./tracking --create-remote owner/repo --host github.com --private --push\nNotes:\n  - Creates a directory structure with schema, tickets, backlog, sprints, repos, people, taxonomies.\n  - Use --force to overwrite existing files.\n  - Use --no-interactive to bypass the wizard in TTY contexts.\n  - Use --remote or --create-remote to set up a remote and optionally push.\n  - Interactive mode can list owners from your PAT (Me + orgs).\n  - Wizard can queue first epic/story/subtask/sprint and backlog planning.\n`,
     );
 
   workspace
@@ -394,6 +439,191 @@ function initGitRepository(targetDir: string): void {
   }
 }
 
+function createInitialCommit(targetDir: string): void {
+  // Stage entire workspace and create initial commit
+  spawnSync('git', ['add', '-A', '--', '.'], { cwd: targetDir, stdio: 'inherit' });
+  const res = spawnSync('git', ['commit', '-m', 'houston: initialize workspace'], { cwd: targetDir, stdio: 'inherit' });
+  if (res.error) {
+    throw new Error(`Failed to create initial commit: ${res.error.message}`);
+  }
+}
+
+function setRemoteOrigin(targetDir: string, url: string): void {
+  const hasRemote = spawnSync('git', ['remote'], { cwd: targetDir, encoding: 'utf8' });
+  if (hasRemote.error) return;
+  const list = (hasRemote.stdout ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  if (!list.includes('origin')) {
+    const addRes = spawnSync('git', ['remote', 'add', 'origin', url], { cwd: targetDir, stdio: 'inherit' });
+    if (addRes.error) {
+      throw new Error(`Failed to add remote: ${addRes.error.message}`);
+    }
+  } else {
+    spawnSync('git', ['remote', 'set-url', 'origin', url], { cwd: targetDir, stdio: 'inherit' });
+  }
+}
+
+function pushInitial(targetDir: string): void {
+  // Try push with upstream; if not set, establish upstream on main
+  const upstream = spawnSync('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], { cwd: targetDir });
+  if (typeof upstream.status === 'number' && upstream.status === 0) {
+    spawnSync('git', ['push'], { cwd: targetDir, stdio: 'inherit' });
+    return;
+  }
+  const branchRes = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: targetDir, encoding: 'utf8' });
+  const branch = (branchRes.stdout ?? 'main').trim() || 'main';
+  spawnSync('git', ['push', '-u', 'origin', branch], { cwd: targetDir, stdio: 'inherit' });
+}
+
+function resolveInitialPushDecision(targetDir: string, options: CreateWorkspaceOptions): boolean {
+  if (options.push === false) return false;
+  if (options.push === true) return true;
+  // Default: push when a remote exists
+  const remotes = spawnSync('git', ['remote'], { cwd: targetDir, encoding: 'utf8' });
+  const list = (remotes.stdout ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  return list.includes('origin');
+}
+
+import fetch from 'node-fetch';
+import { getSecret, listAccounts as listSecretAccounts } from '../services/secrets.js';
+import { listAuthAccounts as listTrackedAuthAccounts } from '../services/user-config.js';
+import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+
+async function createGitHubRepoFromArg(host: string, ownerRepo: string, isPrivate: boolean, account?: string): Promise<string> {
+  const [owner, repo] = ownerRepo.split('/');
+  if (!owner || !repo) throw new Error(`Invalid value for --create-remote: ${ownerRepo}. Expected owner/repo.`);
+  const apiBase = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
+  const token = account
+    ? await getSecret('archway-houston', account)
+    : await getSecret('archway-houston', `github@${host}#default`) || await getSecret('archway-houston', `github@${host}`);
+  if (!token) throw new Error(`No stored token for github@${host}. Run: houston auth login github --host ${host}`);
+  // Check if owner is a user or org; attempt org first
+  const createUrl = `${apiBase}/orgs/${owner}/repos`;
+  const altUrl = `${apiBase}/user/repos`;
+  const payload = { name: repo, private: isPrivate } as Record<string, unknown>;
+  let response = await fetch(createUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'archway-houston-cli',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (response.status === 404) {
+    // Fall back to creating under the authenticated user
+    response = await fetch(altUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'archway-houston-cli',
+      },
+      body: JSON.stringify({ ...payload, name: repo }),
+    });
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GitHub repo creation failed (${response.status}): ${text}`);
+  }
+  const data = (await response.json()) as { ssh_url?: string; clone_url?: string };
+  // Prefer SSH URL when available
+  return (data.ssh_url ?? data.clone_url) as string;
+}
+
+type OwnerChoice = { type: 'known'; owner: string } | { type: 'custom' };
+
+async function chooseGitHubOwner(host: string, account?: string): Promise<OwnerChoice | null> {
+  const choices = await listGitHubOwners(host, account).catch(() => [] as Array<{ label: string; value: string }>);
+  if (!choices || choices.length === 0) {
+    return { type: 'custom' };
+  }
+  const selected = await uiSelect('Select repository owner', [...choices, { label: 'Other…', value: '__custom__' }], { allowCustom: false });
+  if (!selected || selected === '__custom__') return { type: 'custom' };
+  return { type: 'known', owner: selected };
+}
+
+async function listGitHubOwners(host: string, account?: string): Promise<Array<{ label: string; value: string }>> {
+  const apiBase = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
+  const token = account
+    ? await getSecret('archway-houston', account)
+    : await getSecret('archway-houston', `github@${host}#default`) || await getSecret('archway-houston', `github@${host}`);
+  if (!token) return [];
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+    'User-Agent': 'archway-houston-cli',
+  } as Record<string, string>;
+  const out: Array<{ label: string; value: string }> = [];
+  try {
+    const meRes = await fetch(`${apiBase}/user`, { headers });
+    if (meRes.ok) {
+      const me = (await meRes.json()) as { login?: string };
+      if (me?.login) out.push({ label: `Me (${me.login})`, value: me.login });
+    }
+  } catch {}
+  try {
+    const orgRes = await fetch(`${apiBase}/user/orgs`, { headers });
+    if (orgRes.ok) {
+      const orgs = (await orgRes.json()) as Array<{ login?: string }>;
+      for (const org of orgs) {
+        if (org?.login) out.push({ label: org.login, value: org.login });
+      }
+    }
+  } catch {}
+  const dedup = new Map<string, string>();
+  for (const c of out) dedup.set(c.value, c.label);
+  return Array.from(dedup.entries()).map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function parseOwnerRepo(input: string): { owner: string; repo: string } {
+  const idx = input.indexOf('/');
+  if (idx <= 0 || idx >= input.length - 1) {
+    throw new Error(`Invalid repository: ${input}. Expected owner/repo.`);
+  }
+  const owner = input.slice(0, idx).trim();
+  const repo = input.slice(idx + 1).trim();
+  if (!owner || !repo) throw new Error(`Invalid repository: ${input}. Expected owner/repo.`);
+  return { owner, repo };
+}
+
+async function selectGithubAccount(host: string): Promise<string | null> {
+  // Gather tracked accounts via secrets and config
+  const accounts = await listSecretAccounts('archway-houston');
+  const byHost = accounts.filter((acc) => acc === `github@${host}` || acc.startsWith(`github@${host}#`));
+  if (byHost.length === 0) return null;
+  const options = byHost.map((acc) => ({ label: formatAccountLabel(acc), value: acc }));
+  const selected = await uiSelect('Select a GitHub account to use', [...options, { label: 'Other (manual)', value: '__none__' }], { allowCustom: false });
+  if (!selected || selected === '__none__') return null;
+  return selected;
+}
+
+function formatAccountLabel(account: string): string {
+  // github@host#label → host (label)
+  const m = account.match(/^github@([^#]+)(?:#(.*))?$/);
+  if (!m) return account;
+  const host = m[1];
+  const label = m[2] ?? 'default';
+  return `${host} (${label})`;
+}
+
+function upsertWorkspaceAuth(rootDir: string, auth: { provider: 'github'; host: string; account: string }): void {
+  const file = path.join(rootDir, 'houston.config.yaml');
+  let data: any = {};
+  try { data = readYamlFile(file); } catch {}
+  if (!data || typeof data !== 'object') data = {};
+  data.auth = data.auth ?? {};
+  data.auth.github = { host: auth.host, label: extractLabel(auth.account) };
+  writeYamlFile(file, data, { sortKeys: true });
+}
+
+function extractLabel(account: string): string | undefined {
+  const m = account.match(/^github@[^#]+#(.+)$/);
+  return m ? m[1] : undefined;
+}
+
 async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWorkspaceOptions = {}): Promise<void> {
   await uiIntro('Create Houston Workspace');
   const directory = await uiText('Directory', { defaultValue: initialDir ?? '.', required: true });
@@ -424,6 +654,52 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     }
     if (initGit) {
       initGitRepository(targetDir);
+      // Create the initial commit
+      try { createInitialCommit(targetDir); } catch {}
+      // Offer to configure remote
+      const wantsRemote = await uiConfirm('Configure a remote origin now?', true);
+      if (wantsRemote) {
+        const remoteUrl = (await uiText('Remote URL (leave blank to create on GitHub)', { required: false }))?.trim();
+        if (remoteUrl) {
+          setRemoteOrigin(targetDir, remoteUrl);
+        } else {
+          const host = (await uiText('GitHub host', { defaultValue: 'github.com', required: true })).trim();
+          try {
+            const tracked = listTrackedAuthAccounts();
+            if (!tracked || tracked.length === 0) {
+              console.log(c.subheading('No GitHub accounts configured'));
+              console.log('Let\'s add one now:');
+              const res = spawnSync('houston', ['auth', 'login', 'github', '--host', host], { stdio: 'inherit' });
+              if (res.error) {
+                console.log('Auth login encountered an error; you can also enter a remote URL manually.');
+              }
+            }
+          } catch {}
+          const account = await selectGithubAccount(host);
+          const ownerChoice = await chooseGitHubOwner(host, account ?? undefined);
+          let owner: string;
+          let repoName: string;
+          if (ownerChoice?.type === 'known') {
+            owner = ownerChoice.owner;
+            repoName = (await uiText('Repository name', { required: true })).trim();
+          } else {
+            const ownerRepoInput = (await uiText('Repository (owner/repo)', { required: true })).trim();
+            const parsed = parseOwnerRepo(ownerRepoInput);
+            owner = parsed.owner; repoName = parsed.repo;
+          }
+          const priv = await uiConfirm('Private repository?', true);
+          const url = await createGitHubRepoFromArg(host, `${owner}/${repoName}`, priv, account ?? undefined);
+          setRemoteOrigin(targetDir, url);
+          // Persist selected auth in workspace config
+          if (account) {
+            try { upsertWorkspaceAuth(targetDir, { provider: 'github', host, account }); } catch {}
+          }
+        }
+        const doPush = await uiConfirm('Push initial commit now?', true);
+        if (doPush) {
+          pushInitial(targetDir);
+        }
+      }
     }
     sp.stop('Workspace created');
     try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
@@ -436,6 +712,9 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
       ['Labels', 'Define taxonomy for filtering/reporting'],
       ['Repos', 'Register code repositories (remote optional)'],
       ['Auth', 'Store a GitHub token for automation'],
+      ['Tickets', 'Create your first epic/story/subtask'],
+      ['Sprints', 'Create your first sprint shell'],
+      ['Backlog', 'Plan top items into a sprint'],
     ];
     console.log('');
     console.log(c.subheading('Setup focus'));
@@ -449,6 +728,11 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     const addLabels = await uiConfirm('Add labels now?', true);
     const authLogin = await uiConfirm('Login to GitHub for PR/branch automation now?', true);
     const addRepos = await uiConfirm('Add repositories now?', true);
+    const newEpic = await uiConfirm('Create your first epic now?', true);
+    const newStory = await uiConfirm('Create your first story now?', true);
+    const newSubtask = await uiConfirm('Create your first subtask now?', false);
+    const newSprint = await uiConfirm('Create your first sprint now?', true);
+    const planBacklog = await uiConfirm('Run backlog planning wizard now?', true);
 
     const queue: string[] = [];
     queue.push(`cd ${targetDir}`);
@@ -457,6 +741,11 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
     if (addLabels) queue.push('houston label add');
     if (authLogin) queue.push('houston auth login github');
     if (addRepos) queue.push('houston repo add');
+    if (newEpic) queue.push('houston ticket new epic --interactive');
+    if (newStory) queue.push('houston ticket new story --interactive');
+    if (newSubtask) queue.push('houston ticket new subtask --interactive');
+    if (newSprint) queue.push('houston sprint new --interactive');
+    if (planBacklog) queue.push('houston backlog plan --interactive');
     queue.push('houston check');
     queue.push('houston workspace info');
 
@@ -530,6 +819,16 @@ function describeSetupCommand(cmd: string): string {
       return 'Store a GitHub token for automation';
     case 'houston repo add':
       return 'Add repositories to repos/repos.yaml';
+    case 'houston ticket new epic --interactive':
+      return 'Create your first epic';
+    case 'houston ticket new story --interactive':
+      return 'Create your first story';
+    case 'houston ticket new subtask --interactive':
+      return 'Create your first subtask';
+    case 'houston sprint new --interactive':
+      return 'Create your first sprint';
+    case 'houston backlog plan --interactive':
+      return 'Plan backlog items into a sprint';
     case 'houston check':
       return 'Validate workspace health';
     case 'houston workspace info':

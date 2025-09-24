@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { ensureSignature } from '../lib/signature.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { recordChange } from './mutation-tracker.js';
 
 export interface BacklogRecord {
   ordered?: string[];
@@ -31,10 +32,12 @@ export function saveBacklog(config: CliConfig, record: BacklogRecord): void {
   const file = path.join(config.tracking.backlogDir, 'backlog.yaml');
   const payload = ensureSignature({ ordered: record.ordered ?? [], notes: record.notes ?? '' }, config.metadata.generator);
   writeYamlFile(file, payload);
+  recordChange('backlog');
 }
 
 export function saveNextSprintCandidates(config: CliConfig, record: BacklogRecord): void {
   const file = path.join(config.tracking.backlogDir, 'next-sprint-candidates.yaml');
   const payload = ensureSignature({ candidates: record.candidates ?? [], notes: record.notes ?? '' }, config.metadata.generator);
   writeYamlFile(file, payload);
+  recordChange('backlog');
 }

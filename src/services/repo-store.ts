@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { recordChange } from './mutation-tracker.js';
 import type { RepoConfig, ReposFile } from './repo-registry.js';
 import { resetRepoCache, parseRemote } from './repo-registry.js';
 
@@ -29,6 +30,7 @@ export function upsertRepo(config: CliConfig, repo: RepoConfig): void {
   repos.sort((a, b) => a.id.localeCompare(b.id));
   writeYamlFile(file, { repos });
   resetRepoCache();
+  recordChange('repos');
 }
 
 export function repoIdExists(config: CliConfig, id: string): boolean {

@@ -24,6 +24,22 @@ export interface CliConfig {
   workspaceRoot: string;
   tracking: TrackingConfig;
   metadata: CliMetadata;
+  git?: GitConfig;
+  auth?: AuthConfig;
+}
+
+export interface GitConfig {
+  autoCommit?: boolean;
+  autoPush?: boolean | 'auto';
+  autoPull?: boolean;
+  pullRebase?: boolean;
+}
+
+export interface AuthConfig {
+  github?: {
+    host?: string;
+    label?: string;
+  };
 }
 
 export interface ConfigResolution {
@@ -73,6 +89,13 @@ function applyDefaults(workspaceRoot: string, configFromFile: Partial<CliConfig>
       version: pkgVersion,
       generator: `houston@${pkgVersion}`,
     },
+    git: {
+      autoCommit: configFromFile?.git?.autoCommit ?? true,
+      autoPush: configFromFile?.git?.autoPush ?? 'auto',
+      autoPull: configFromFile?.git?.autoPull ?? true,
+      pullRebase: configFromFile?.git?.pullRebase ?? true,
+    },
+    auth: configFromFile?.auth,
   };
 }
 

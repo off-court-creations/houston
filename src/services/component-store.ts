@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
+import { recordChange } from './mutation-tracker.js';
 
 interface ComponentFile {
   components?: string[];
@@ -35,6 +36,7 @@ export function addComponent(config: CliConfig, componentId: string): void {
   writeYamlFile(file, {
     [COMPONENTS_KEY]: sorted,
   });
+  recordChange('components');
 }
 
 export function componentExists(config: CliConfig, componentId: string): boolean {
