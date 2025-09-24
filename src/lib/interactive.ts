@@ -1,6 +1,6 @@
 import process from 'node:process';
 import { promptInput as rlInput, promptMultiSelect as rlMulti, promptSelect as rlSelect } from './prompter.js';
-import { setEnabled as setColorEnabled, isEnabled as colorsEnabled } from './colors.js';
+import { setEnabled as setColorEnabled } from './colors.js';
 
 type TextOptions = {
   defaultValue?: string;
@@ -10,9 +10,7 @@ type TextOptions = {
   validate?: (value: string) => string | null;
 };
 
-type ConfirmOptions = {
-  defaultValue?: boolean;
-};
+// ConfirmOptions type removed (unused)
 
 type Choice = { label: string; value: string };
 

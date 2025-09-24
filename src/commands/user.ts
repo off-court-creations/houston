@@ -1,10 +1,9 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { Command } from 'commander';
 import { loadConfig, type CliConfig } from '../config/config.js';
 import { promptText, promptMultiSelect, promptSelect, promptConfirm, canPrompt as canInteractive } from '../lib/interactive.js';
-import { loadPeople, upsertPerson, hasPerson, type PersonRecord } from '../services/people-store.js';
+import { loadPeople, upsertPerson, type PersonRecord } from '../services/people-store.js';
 import { normalizeUserId, isValidUserId } from '../utils/user-id.js';
 import { c } from '../lib/colors.js';
 import { renderBoxTable } from '../lib/printer.js';

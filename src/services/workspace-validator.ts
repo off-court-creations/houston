@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { loadConfig, CliConfig } from '../config/config.js';
 import { hasValidSignature } from '../lib/signature.js';
 import { SchemaRegistry } from './schema-registry.js';

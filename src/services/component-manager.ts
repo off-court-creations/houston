@@ -1,4 +1,3 @@
-import process from 'node:process';
 import type { CliConfig } from '../config/config.js';
 import { promptText, promptMultiSelect, canPrompt, intro } from '../lib/interactive.js';
 
@@ -51,7 +50,7 @@ export async function promptComponentDetails(
   }
 
   const allowEditId = options.allowEditId !== false;
-  const existing = new Set(loadComponents(config));
+  // Note: reserved ids can be handled later if needed
   let componentId = options.initialId ? normalizeComponentId(options.initialId) : '';
 
   if (!componentId || allowEditId) {

@@ -55,7 +55,7 @@ export function registerTicketCommand(program: Command): void {
   registerLinkCommand(ticket);
 
   // Ticket details
-  const show = ticket
+  ticket
     .command('show')
     .description('Show ticket details (optionally open in editor)')
     .argument('<ticketId>')

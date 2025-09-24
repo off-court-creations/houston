@@ -11,7 +11,6 @@ import { emptyScope, loadSprint, saveSprintScope, ensureSprintStructure } from '
 import { resolveTicketIds } from '../services/ticket-id-resolver.js';
 import { shortenTicketId } from '../lib/id.js';
 import {
-  canPrompt as canInteractive,
   intro as uiIntro,
   outro as uiOutro,
   promptSelect as uiSelect,

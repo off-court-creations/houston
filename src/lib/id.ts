@@ -28,7 +28,7 @@ type ParsedTicketId = {
 function parseTicketId(id: string): ParsedTicketId | undefined {
   const match = CANONICAL_TICKET_ID_REGEX.exec(id);
   if (!match) return undefined;
-  const [_, prefix, a, b, c, d, e] = match;
+  const [, prefix, a, b, c, d, e] = match;
   if (!prefix) return undefined;
   return {
     prefix: prefix as TicketIdPrefix,

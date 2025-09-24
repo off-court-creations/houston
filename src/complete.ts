@@ -244,7 +244,7 @@ function listOptionNames(cmd: Command): string[] {
   return Array.from(opts.values()).sort();
 }
 
-function suggestForArgument(pathSegs: string[], consumedArgs: string[], cur: string, inventory?: WorkspaceInventory): string[] {
+function suggestForArgument(pathSegs: string[], consumedArgs: string[], cur: string, _inventory?: WorkspaceInventory): string[] {
   // Path-specific positional arguments
   // auth login/logout/test <provider>
   if (pathEq(pathSegs, ['auth', 'login']) || pathEq(pathSegs, ['auth', 'logout']) || pathEq(pathSegs, ['auth', 'test'])) {

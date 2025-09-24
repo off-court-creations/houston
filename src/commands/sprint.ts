@@ -13,7 +13,7 @@ import {
 } from '../services/sprint-store.js';
 import { loadTicket } from '../services/ticket-store.js';
 import { loadConfig as loadCliConfig } from '../config/config.js';
-import { buildWorkspaceAnalytics, type WorkspaceAnalytics, type SprintOverview, type SprintPhase } from '../services/workspace-analytics.js';
+import { buildWorkspaceAnalytics, type WorkspaceAnalytics, type SprintPhase } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
 import { formatTable, printOutput, renderBoxTable } from '../lib/printer.js';
 import { c } from '../lib/colors.js';

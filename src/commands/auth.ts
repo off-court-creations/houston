@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import process from 'node:process';
 import fetch from 'node-fetch';
 import { canPrompt, promptSecret, promptText, promptConfirm } from '../lib/interactive.js';
 import { getSecret, setSecret, deleteSecret, listAccounts, backendName } from '../services/secrets.js';

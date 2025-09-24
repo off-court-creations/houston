@@ -1,4 +1,3 @@
-import os from 'node:os';
 import process from 'node:process';
 
 export function resolveActor(): string {

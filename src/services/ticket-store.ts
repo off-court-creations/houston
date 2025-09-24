@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import type { CliConfig } from '../config/config.js';
 import { ensureSignature } from '../lib/signature.js';
 import { writeYamlFile, readYamlFile } from '../lib/yaml.js';

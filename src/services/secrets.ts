@@ -54,9 +54,7 @@ function writeEncFile(payload: EncPayloadV1): void {
   fs.writeFileSync(FILE, json + (json.endsWith('\n') ? '' : '\n'), { mode: 0o600 });
 }
 
-interface ResolveOptions {
-  confirmOnCreate?: boolean;
-}
+// Options previously allowed custom confirm behavior; simplified away.
 
 async function promptAndConfirm(initialPrompt: string): Promise<string> {
   while (true) {
@@ -84,7 +82,7 @@ function hasStoredEntries(): boolean {
   }
 }
 
-async function resolvePassphrase(options: ResolveOptions = {}): Promise<string | null> {
+async function resolvePassphrase(): Promise<string | null> {
   const env = process.env.HOUSTON_PASSPHRASE;
   if (env && env.trim() !== '') return env;
   if (!canPrompt()) return null;
@@ -159,7 +157,7 @@ export async function setSecret(service: string, account: string, value: string)
     await kt.setPassword(service, account, value);
     return;
   }
-  const pass = await resolvePassphrase({ confirmOnCreate: true });
+  const pass = await resolvePassphrase();
   if (!pass) throw new Error('No passphrase available to encrypt secret');
   const db = readEncFile();
   db.entries[`${service}:${account}`] = encrypt(pass, value);

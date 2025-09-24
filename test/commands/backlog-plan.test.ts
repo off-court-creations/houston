@@ -28,10 +28,10 @@ vi.mock('../../src/lib/interactive.js', () => {
 });
 
 const interactive = await import('../../src/lib/interactive.js');
-const introMock = interactive.intro as vi.MockedFunction<typeof interactive.intro>;
+const _introMock = interactive.intro as vi.MockedFunction<typeof interactive.intro>;
 const outroMock = interactive.outro as vi.MockedFunction<typeof interactive.outro>;
 const promptSelectMock = interactive.promptSelect as vi.MockedFunction<typeof interactive.promptSelect>;
-const promptTextMock = interactive.promptText as vi.MockedFunction<typeof interactive.promptText>;
+const _promptTextMock = interactive.promptText as vi.MockedFunction<typeof interactive.promptText>;
 const promptMultiSelectMock = interactive.promptMultiSelect as vi.MockedFunction<typeof interactive.promptMultiSelect>;
 const spinnerFactoryMock = interactive.spinner as vi.MockedFunction<typeof interactive.spinner>;
 
