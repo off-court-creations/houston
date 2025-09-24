@@ -198,6 +198,7 @@ function isReadOnlyCommand(path: string): boolean {
     'workspace info',
     'ticket list',
     'ticket show',
+    'ticket preview',
     'check',
     'config',
     'config set default-workspace',
