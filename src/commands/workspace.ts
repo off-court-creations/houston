@@ -249,8 +249,6 @@ export function registerWorkspaceCommand(program: Command): void {
         ['Backlog path', analytics.backlog.path],
         ['Next sprint path', analytics.nextSprint.path],
       ]);
-      lines.push(c.heading('Workspace'));
-      lines.push(...workspaceTable);
 
       const summaryRows: string[][] = [
         [c.bold('Group'), c.bold('Metric'), c.bold('Value')],
@@ -315,6 +313,10 @@ export function registerWorkspaceCommand(program: Command): void {
       } else {
         lines.push('No sprints found.');
       }
+
+      lines.push('');
+      lines.push(c.heading('Workspace'));
+      lines.push(...workspaceTable);
 
       printOutput(payload, lines, options);
     })

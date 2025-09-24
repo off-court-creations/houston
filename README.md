@@ -25,6 +25,41 @@ npm run dev -- check --format table
 
 Tip: Once built (`npm run build`), you can run the compiled binary with `node dist/index.js <cmd>` or symlink with `npm link` to invoke `houston` directly.
 
+## Shell Completions
+
+Houston ships a small helper (`houston-complete`) and shell wrappers. Install them once for rich tab‑completion:
+
+zsh
+
+```
+mkdir -p ~/.zsh/completions
+cp hooks/completions/_houston ~/.zsh/completions/_houston
+echo "fpath+=(~/.zsh/completions)" >> ~/.zshrc
+autoload -Uz compinit && compinit
+```
+
+bash
+
+```
+mkdir -p ~/.local/share/bash-completion/completions
+cp hooks/completions/houston.bash ~/.local/share/bash-completion/completions/houston
+# Or: source ~/.local/share/bash-completion/completions/houston
+```
+
+Try it out
+
+```
+# Explore config subtree completions
+houston config <TAB>                # suggests: set, show, --json
+houston config set <TAB>            # suggests: default-workspace
+houston config show <TAB>           # suggests: default-workspace
+
+# Set and show default workspace used outside workspaces
+houston config set default-workspace .
+houston config show default-workspace
+houston config show default-workspace --json
+```
+
 ## Everyday Tasks
 
 ```sh

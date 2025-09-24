@@ -4,6 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { createLogger } from '../logger.js';
+import { readUserConfig } from '../services/user-config.js';
 
 const CONFIG_FILE_CANDIDATES = ['houston.config.yaml', 'houston.config.yml'];
 
@@ -46,7 +47,7 @@ export interface ConfigResolution {
   config?: CliConfig;
   configPath?: string;
   workspaceRoot?: string;
-  source: 'filesystem' | 'env' | 'none';
+  source: 'filesystem' | 'env' | 'user' | 'none';
   version: string;
 }
 
@@ -108,7 +109,7 @@ export function loadConfig(options: LoadConfigOptions = {}): CliConfig {
   if (!resolution.config) {
     const startDir = fs.realpathSync(options.cwd ?? process.cwd());
     throw new WorkspaceConfigNotFoundError(
-      `No Houston workspace detected from ${startDir}. Run this command inside a workspace or set HOUSTON_CONFIG_PATH.`,
+      `No Houston workspace detected from ${startDir}. Run inside a workspace, set a default in ~/.houston/config.toml, or set HOUSTON_CONFIG_PATH.`,
     );
   }
   return resolution.config;
@@ -120,6 +121,39 @@ export function resolveConfig(options: LoadConfigOptions = {}): ConfigResolution
   const pkgVersion = readPackageVersion();
 
   if (!located) {
+    // Fallback: try user config default workspace (from ~/.houston/config.toml)
+    const user = readUserConfig();
+    const userDir = user.workspace_path;
+    if (userDir) {
+      try {
+        const resolvedUserDir = fs.realpathSync(userDir);
+        for (const candidate of CONFIG_FILE_CANDIDATES) {
+          const cfgPath = path.join(resolvedUserDir, candidate);
+          if (fs.existsSync(cfgPath)) {
+            const resolvedPath = fs.realpathSync(cfgPath);
+            const fileContent = fs.readFileSync(resolvedPath, 'utf8');
+            let loaded: Partial<CliConfig> | undefined;
+            const parsed = YAML.parse(fileContent);
+            if (parsed && isObject(parsed)) {
+              loaded = parsed as Partial<CliConfig>;
+            } else {
+              logger.warn(`Ignoring invalid config at ${resolvedPath}`);
+            }
+            const workspaceRoot = resolvedUserDir;
+            const config = applyDefaults(workspaceRoot, loaded, pkgVersion);
+            return {
+              config,
+              configPath: resolvedPath,
+              workspaceRoot,
+              source: 'user',
+              version: pkgVersion,
+            };
+          }
+        }
+      } catch {
+        // ignore and fall through to none
+      }
+    }
     return { version: pkgVersion, source: 'none' };
   }
 

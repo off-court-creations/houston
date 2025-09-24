@@ -45,6 +45,12 @@ export function setDefaultWorkspaceIfUnset(workspacePath: string): void {
   }
 }
 
+export function setDefaultWorkspace(workspacePath: string): void {
+  const cfg = readUserConfig();
+  cfg.workspace_path = workspacePath;
+  writeUserConfig(cfg);
+}
+
 export function setCompletionsWarningDisabled(disabled: boolean): void {
   const cfg = readUserConfig();
   cfg.completions_warning_disabled = disabled;

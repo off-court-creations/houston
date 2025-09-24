@@ -2,6 +2,8 @@
 
 - `houston version` — tested
 - `houston config` — tested
+  - `houston config set default-workspace [dir]` — untested
+  - `houston config show default-workspace` — untested
 - `houston check` — tested
 - `houston auth login <provider>` — tested
 - `houston auth logout <provider>` — tested

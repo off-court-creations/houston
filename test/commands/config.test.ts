@@ -52,6 +52,10 @@ describe('config command', () => {
     const program = createProgram();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    // Ensure no default workspace is picked up from user config
+    const homeSpy = vi.spyOn(os, 'homedir').mockReturnValue(fs.mkdtempSync(path.join(os.tmpdir(), 'home-')));
+    const prevEnv = process.env.HOUSTON_CONFIG_PATH;
+    delete process.env.HOUSTON_CONFIG_PATH;
 
     await program.parseAsync(['node', 'houston', 'config']);
 
@@ -62,12 +66,18 @@ describe('config command', () => {
 
     writeSpy.mockRestore();
     cwdSpy.mockRestore();
+    homeSpy.mockRestore();
+    if (prevEnv !== undefined) process.env.HOUSTON_CONFIG_PATH = prevEnv; else delete process.env.HOUSTON_CONFIG_PATH;
   });
 
   it('emits structured JSON when no workspace is detected', async () => {
     const program = createProgram();
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    // Ensure no default workspace is picked up from user config
+    const homeSpy = vi.spyOn(os, 'homedir').mockReturnValue(fs.mkdtempSync(path.join(os.tmpdir(), 'home-')));
+    const prevEnv = process.env.HOUSTON_CONFIG_PATH;
+    delete process.env.HOUSTON_CONFIG_PATH;
 
     await program.parseAsync(['node', 'houston', 'config', '--json']);
 
@@ -79,5 +89,7 @@ describe('config command', () => {
 
     writeSpy.mockRestore();
     cwdSpy.mockRestore();
+    homeSpy.mockRestore();
+    if (prevEnv !== undefined) process.env.HOUSTON_CONFIG_PATH = prevEnv; else delete process.env.HOUSTON_CONFIG_PATH;
   });
 });
