@@ -73,7 +73,7 @@ describe('repo command', () => {
       return { status: 0, stdout: '', stderr: '' } as any;
     });
 
-    const selectQueue = ['path', 'github'];
+    const selectQueue = ['path', 'github', 'done'];
     promptSelectMock.mockImplementation(async () => selectQueue.shift() ?? 'github');
     promptMultiSelectMock.mockResolvedValue([]);
     promptConfirmMock.mockImplementation(async (_question, defaultValue) => defaultValue);

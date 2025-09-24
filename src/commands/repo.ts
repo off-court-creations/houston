@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import { buildWorkspaceAnalytics, type WorkspaceAnalytics } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
-import { printOutput, formatTable } from '../lib/printer.js';
+import { printOutput, formatTable, renderBoxTable } from '../lib/printer.js';
 import { c } from '../lib/colors.js';
 import { shortenTicketId } from '../lib/id.js';
 import type { RepoConfig } from '../services/repo-registry.js';
@@ -13,6 +13,15 @@ import { parseRemote } from '../services/repo-registry.js';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { wizardAttempt } from '../lib/wizard.js';
+
+interface DetectedRepoInfo {
+  path: string;
+  id?: string;
+  provider?: RepoConfig['provider'];
+  remote?: string;
+  default_branch?: string;
+}
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 
@@ -142,7 +151,12 @@ async function handleRepoAdd(opts: Record<string, unknown>): Promise<void> {
 
   let record: RepoConfig = defaults;
   if (interactive) {
-    record = await promptRepoDetails(config, defaults);
+    const result = await promptRepoDetails(config, defaults);
+    if (!result) {
+      console.log('Aborted. No changes saved.');
+      return;
+    }
+    record = result;
   }
 
   const errors = validateRepoConfig(record);
@@ -176,6 +190,10 @@ async function handleRepoAdd(opts: Record<string, unknown>): Promise<void> {
         default_branch: 'main',
         branch_prefix: { epic: 'epic', story: 'story', subtask: 'subtask', bug: 'bug' },
       } as RepoConfig);
+      if (!next) {
+        console.log('Aborted. No additional repositories added.');
+        continue;
+      }
       const errs = validateRepoConfig(next);
       if (errs.length) {
         console.log(c.warn(`Skipped entry due to errors:\n- ${errs.join('\n- ')}`));
@@ -187,62 +205,99 @@ async function handleRepoAdd(opts: Record<string, unknown>): Promise<void> {
   }
 }
 
-async function promptRepoDetails(config: ReturnType<typeof loadConfig>, initial: RepoConfig): Promise<RepoConfig> {
-  // Entry method
-  const method = await promptSelect(
-    'How would you like to add this repository?',
-    [
-      { label: 'Detect from local path (git repo directory)', value: 'path' },
-      { label: 'Enter details manually', value: 'manual' },
-    ],
-    { defaultValue: 'manual', allowCustom: false },
-  );
+async function promptRepoDetails(config: ReturnType<typeof loadConfig>, initial: RepoConfig): Promise<RepoConfig | null> {
+  let detected: DetectedRepoInfo | undefined;
 
-  let detected: Partial<RepoConfig> = {};
-  if (method === 'path') {
-    const input = await promptText('Local repository path (absolute or relative)', { required: true });
-    const repoPath = path.resolve(process.cwd(), input);
-    if (!fs.existsSync(repoPath) || !fs.lstatSync(repoPath).isDirectory()) {
-      throw new Error(`Path not found or not a directory: ${repoPath}`);
+  while (true) {
+    const method = await promptSelect(
+      'How would you like to add this repository?',
+      [
+        { label: 'Detect from local path (git repo directory)', value: 'path' },
+        { label: 'Enter details manually', value: 'manual' },
+      ],
+      { defaultValue: 'manual', allowCustom: false },
+    );
+
+    if (method === 'path') {
+      const detection = await wizardAttempt(() => detectRepoFromPath(initial), {
+        allowBack: true,
+        prompt: 'Path detection failed. What next?',
+      });
+      if (detection.status === 'ok' && detection.value) {
+        detected = detection.value;
+        break;
+      }
+      if (detection.status === 'back') {
+        continue; // choose method again
+      }
+      return null;
     }
-    const isGit = fs.existsSync(path.join(repoPath, '.git')) || run('git', ['-C', repoPath, 'rev-parse', '--is-inside-work-tree']).ok;
-    if (!isGit) {
-      throw new Error('The provided path is not a git repository');
-    }
-    // Try to detect remote
-    const remotes = run('git', ['-C', repoPath, 'remote', '-v']).stdout;
-    let remoteUrl: string | undefined;
-    const lines = remotes.split(/\r?\n/).filter(Boolean);
-    const origin = lines.find((l) => l.startsWith('origin\t')) || lines[0];
-    if (origin) {
-      const m = origin.match(/\t([^\s]+)\s+\((fetch|push)\)/);
-      if (m) remoteUrl = m[1];
-    }
-    let provider: RepoConfig['provider'] | string = initial.provider || 'github';
-    if (remoteUrl) {
-      const parsed = parseRemote(remoteUrl);
-      if (parsed && parsed.host.includes('github')) provider = 'github';
-      // else leave as initial or ask later
-      detected.remote = remoteUrl;
-    } else {
-      provider = 'local';
-    }
-    detected.id = suggestRepoIdFromPath(repoPath);
-    // Default branch detection (best-effort)
-    let defaultBranch: string | undefined;
-    const headRef = run('git', ['-C', repoPath, 'symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).stdout.trim();
-    if (headRef && headRef.includes('/')) {
-      defaultBranch = headRef.split('/').pop();
-    } else {
-      const current = run('git', ['-C', repoPath, 'rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
-      if (current && current !== 'HEAD') defaultBranch = current;
-    }
-    detected.provider = provider as RepoConfig['provider'];
-    if (defaultBranch) detected.default_branch = defaultBranch;
+
+    detected = undefined;
+    break;
   }
 
-  // ID
-  const defaultIdCandidate = detected.id ?? (initial.id && initial.id.trim() !== '' ? initial.id : undefined) ?? 'repo.sample';
+  let record = await collectRepoDetails(config, initial, detected);
+  const confirmed = await reviewRepoRecord(config, record);
+  if (!confirmed) {
+    return null;
+  }
+  return record;
+}
+
+async function detectRepoFromPath(initial: RepoConfig): Promise<DetectedRepoInfo> {
+  const input = await promptText('Local repository path (absolute or relative)', { required: true });
+  const repoPath = path.resolve(process.cwd(), input);
+  if (!fs.existsSync(repoPath) || !fs.lstatSync(repoPath).isDirectory()) {
+    throw new Error(`Path not found or not a directory: ${repoPath}`);
+  }
+  const inGitWorktree = fs.existsSync(path.join(repoPath, '.git')) || run('git', ['-C', repoPath, 'rev-parse', '--is-inside-work-tree']).ok;
+  if (!inGitWorktree) {
+    throw new Error('The provided path is not a git repository');
+  }
+
+  const info: DetectedRepoInfo = { path: repoPath };
+
+  const remotes = run('git', ['-C', repoPath, 'remote', '-v']).stdout;
+  const lines = remotes.split(/\r?\n/).filter(Boolean);
+  const origin = lines.find((l) => l.startsWith('origin\t')) || lines[0];
+  if (origin) {
+    const m = origin.match(/\t([^\s]+)\s+\((fetch|push)\)/);
+    if (m) info.remote = m[1];
+  }
+
+  if (info.remote) {
+    const parsed = parseRemote(info.remote);
+    if (parsed?.host?.includes('github')) {
+      info.provider = 'github';
+    }
+  } else {
+    info.provider = 'local';
+  }
+
+  info.id = suggestRepoIdFromPath(repoPath);
+
+  const headRef = run('git', ['-C', repoPath, 'symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).stdout.trim();
+  if (headRef && headRef.includes('/')) {
+    info.default_branch = headRef.split('/').pop();
+  } else {
+    const current = run('git', ['-C', repoPath, 'rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
+    if (current && current !== 'HEAD') info.default_branch = current;
+  }
+
+  if (!info.provider) {
+    info.provider = (initial.provider as RepoConfig['provider']) ?? 'github';
+  }
+
+  return info;
+}
+
+async function collectRepoDetails(
+  config: ReturnType<typeof loadConfig>,
+  initial: RepoConfig,
+  detected?: DetectedRepoInfo,
+): Promise<RepoConfig> {
+  const defaultIdCandidate = detected?.id ?? (initial.id && initial.id.trim() !== '' ? initial.id : undefined) ?? 'repo.sample';
   let id = await promptText('Repository id (e.g., repo.web)', {
     defaultValue: defaultIdCandidate,
     required: true,
@@ -250,7 +305,6 @@ async function promptRepoDetails(config: ReturnType<typeof loadConfig>, initial:
   });
   id = id.trim();
 
-  // Provider
   const provChoices = [
     { label: 'GitHub', value: 'github' },
     { label: 'Local only (no remote)', value: 'local' },
@@ -259,120 +313,233 @@ async function promptRepoDetails(config: ReturnType<typeof loadConfig>, initial:
   ];
   const provider =
     (await promptSelect('Provider', provChoices, {
-      defaultValue: (detected.provider as string) || initial.provider || 'github',
+      defaultValue: detected?.provider ?? initial.provider ?? 'github',
       allowCustom: false,
     })) ?? 'github';
 
-  // Remote
-  let remote = '';
+  let remote: string | undefined;
   if (provider !== 'local') {
     remote = await promptText('Remote (ssh/https, e.g., git@github.com:org/repo.git)', {
-      defaultValue: detected.remote ?? initial.remote ?? '',
+      defaultValue: detected?.remote ?? initial.remote ?? '',
       required: true,
       validate: (val) => (val.trim().length ? null : 'Remote is required.'),
     });
+    remote = remote.trim();
   }
 
-  // Default branch
   const defaultBranch = await promptText('Default branch', {
-    defaultValue: detected.default_branch || initial.default_branch || 'main',
+    defaultValue: detected?.default_branch ?? initial.default_branch ?? 'main',
     required: true,
     validate: (val) => (val.trim().length ? null : 'Default branch is required.'),
   });
 
-  // Branch prefixes
-  const epicPrefix = await promptText('Branch prefix — epic', {
-    defaultValue: initial.branch_prefix?.epic || 'epic',
-    required: true,
-    validate: (v) => (/^[a-z0-9][a-z0-9_-]*$/.test(v) ? null : 'Use ^[a-z0-9][a-z0-9_-]*$'),
-  });
-  const storyPrefix = await promptText('Branch prefix — story', {
-    defaultValue: initial.branch_prefix?.story || 'story',
-    required: true,
-    validate: (v) => (/^[a-z0-9][a-z0-9_-]*$/.test(v) ? null : 'Use ^[a-z0-9][a-z0-9_-]*$'),
-  });
-  const subtaskPrefix = await promptText('Branch prefix — subtask', {
-    defaultValue: initial.branch_prefix?.subtask || 'subtask',
-    required: true,
-    validate: (v) => (/^[a-z0-9][a-z0-9_-]*$/.test(v) ? null : 'Use ^[a-z0-9][a-z0-9_-]*$'),
-  });
-  const bugPrefix = await promptText('Branch prefix — bug', {
-    defaultValue: initial.branch_prefix?.bug || 'bug',
-    required: true,
-    validate: (v) => (/^[a-z0-9][a-z0-9_-]*$/.test(v) ? null : 'Use ^[a-z0-9][a-z0-9_-]*$'),
-  });
+  const branchPrefix = {
+    epic: await promptBranchPrefix('Branch prefix — epic', initial.branch_prefix?.epic ?? 'epic'),
+    story: await promptBranchPrefix('Branch prefix — story', initial.branch_prefix?.story ?? 'story'),
+    subtask: await promptBranchPrefix('Branch prefix — subtask', initial.branch_prefix?.subtask ?? 'subtask'),
+    bug: await promptBranchPrefix('Branch prefix — bug', initial.branch_prefix?.bug ?? 'bug'),
+  } as RepoConfig['branch_prefix'];
 
-  // PR defaults
-  const openByDefault = await yesNo('Open PR by default for new branches?', Boolean(initial.pr?.open_by_default));
+  const prSettings = await promptPrSettings(config, initial.pr);
+  const protections = await promptProtections(initial.protections);
+
+  return {
+    id,
+    provider: provider as RepoConfig['provider'],
+    ...(provider !== 'local' && remote ? { remote } : {}),
+    default_branch: defaultBranch.trim(),
+    branch_prefix: branchPrefix,
+    pr: prSettings,
+    protections,
+  };
+}
+
+async function reviewRepoRecord(config: ReturnType<typeof loadConfig>, record: RepoConfig): Promise<boolean> {
+  while (true) {
+    displayRepoSummary(record);
+    const choice = await promptSelect(
+      'Adjust repository configuration?',
+      [
+        { label: 'Looks good – save', value: 'done' },
+        { label: 'Change repository id', value: 'id' },
+        { label: 'Change provider', value: 'provider' },
+        { label: 'Change remote URL', value: 'remote' },
+        { label: 'Change default branch', value: 'defaultBranch' },
+        { label: 'Edit branch prefixes', value: 'prefixes' },
+        { label: 'Edit PR defaults', value: 'pr' },
+        { label: 'Edit branch protections', value: 'protections' },
+        { label: 'Cancel without saving', value: 'cancel' },
+      ],
+      { defaultValue: 'done', allowCustom: false },
+    );
+
+    switch (choice) {
+      case 'done':
+        return true;
+      case 'cancel':
+        return false;
+      case 'id': {
+        const next = await promptText('Repository id', {
+          defaultValue: record.id,
+          required: true,
+          validate: (val) => (/^[a-z0-9][a-z0-9._-]*$/.test(val) ? null : 'Use lowercase id: ^[a-z0-9][a-z0-9._-]*$'),
+        });
+        record.id = next.trim();
+        break;
+      }
+      case 'provider': {
+        const prov = (await promptSelect('Provider', [
+          { label: 'GitHub', value: 'github' },
+          { label: 'Local only (no remote)', value: 'local' },
+          { label: 'GitLab', value: 'gitlab' },
+          { label: 'Bitbucket', value: 'bitbucket' },
+        ], { defaultValue: record.provider, allowCustom: false })) as RepoConfig['provider'];
+        record.provider = prov ?? record.provider;
+        if (record.provider === 'local') {
+          delete record.remote;
+        } else if (!record.remote) {
+          const remote = await promptText('Remote (ssh/https)', {
+            required: true,
+            validate: (val) => (val.trim().length ? null : 'Remote is required.'),
+          });
+          record.remote = remote.trim();
+        }
+        break;
+      }
+      case 'remote': {
+        if (record.provider === 'local') {
+          console.log(c.warn('Provider is set to local; update the provider before configuring a remote.'));
+          break;
+        }
+        const remote = await promptText('Remote (ssh/https)', {
+          defaultValue: record.remote ?? '',
+          required: true,
+          validate: (val) => (val.trim().length ? null : 'Remote is required.'),
+        });
+        record.remote = remote.trim();
+        break;
+      }
+      case 'defaultBranch': {
+        const branch = await promptText('Default branch', {
+          defaultValue: record.default_branch,
+          required: true,
+          validate: (val) => (val.trim().length ? null : 'Default branch is required.'),
+        });
+        record.default_branch = branch.trim();
+        break;
+      }
+      case 'prefixes': {
+        record.branch_prefix = {
+          epic: await promptBranchPrefix('Branch prefix — epic', record.branch_prefix?.epic ?? 'epic'),
+          story: await promptBranchPrefix('Branch prefix — story', record.branch_prefix?.story ?? 'story'),
+          subtask: await promptBranchPrefix('Branch prefix — subtask', record.branch_prefix?.subtask ?? 'subtask'),
+          bug: await promptBranchPrefix('Branch prefix — bug', record.branch_prefix?.bug ?? 'bug'),
+        };
+        break;
+      }
+      case 'pr': {
+        record.pr = await promptPrSettings(config, record.pr);
+        break;
+      }
+      case 'protections': {
+        record.protections = await promptProtections(record.protections);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+}
+
+function displayRepoSummary(record: RepoConfig): void {
+  const rows: string[][] = [
+    [c.bold('Field'), c.bold('Value')],
+    ['id', record.id],
+    ['provider', record.provider],
+    ['remote', record.remote ?? '-'],
+    ['default_branch', record.default_branch],
+    [
+      'branch_prefix',
+      `epic=${record.branch_prefix?.epic}, story=${record.branch_prefix?.story}, subtask=${record.branch_prefix?.subtask}, bug=${record.branch_prefix?.bug}`,
+    ],
+  ];
+
+  if (record.pr) {
+    rows.push([
+      'pr',
+      `open=${record.pr.open_by_default ? 'yes' : 'no'}, base=${record.pr.base ?? '-'}, labels=${(record.pr.labels ?? []).join(',') || '-'}, reviewers=${
+        record.pr.reviewers_from_ticket_approvers ? 'yes' : 'no'
+      }`,
+    ]);
+  }
+
+  if (record.protections) {
+    rows.push([
+      'protections',
+      `require_checks=${record.protections.require_status_checks ? 'yes' : 'no'}, disallow_force=${record.protections.disallow_force_push ? 'yes' : 'no'}`,
+    ]);
+  }
+
+  console.log('');
+  console.log(c.heading('Repository configuration'));
+  for (const line of renderBoxTable(rows)) {
+    console.log(line);
+  }
+  console.log('');
+}
+
+async function promptBranchPrefix(question: string, current: string): Promise<string> {
+  const value = await promptText(question, {
+    defaultValue: current,
+    required: true,
+    validate: (v) => (/^[a-z0-9][a-z0-9_-]*$/.test(v) ? null : 'Use ^[a-z0-9][a-z0-9_-]*$'),
+  });
+  return value.trim();
+}
+
+async function promptPrSettings(
+  config: ReturnType<typeof loadConfig>,
+  existing: RepoConfig['pr'] | undefined,
+): Promise<RepoConfig['pr']> {
+  const openByDefault = await yesNo('Open PR by default for new branches?', Boolean(existing?.open_by_default));
   const prBase = await promptText('PR base branch (optional, defaults to default branch)', {
-    defaultValue: initial.pr?.base ?? '',
+    defaultValue: existing?.base ?? '',
     allowEmpty: true,
   });
 
-  let prLabels: string[] = [];
+  let labels: string[] = [];
   const availableLabels = loadLabels(config);
   if (availableLabels.length) {
-    prLabels = await promptMultiSelect('Default PR labels (optional)', availableLabels, {
-      defaultValue: initial.pr?.labels ?? [],
+    labels = await promptMultiSelect('Default PR labels (optional)', availableLabels, {
+      defaultValue: existing?.labels ?? [],
       required: false,
       allowEmpty: true,
     });
   } else {
-    const raw = await promptText('Default PR labels (comma separated, optional)', { defaultValue: (initial.pr?.labels ?? []).join(', ') });
-    prLabels = splitCsv(raw);
+    const raw = await promptText('Default PR labels (comma separated, optional)', {
+      defaultValue: (existing?.labels ?? []).join(', '),
+      allowEmpty: true,
+    });
+    labels = splitCsv(raw);
   }
 
-  const reviewersFromApprovers = await yesNo('Add ticket approvers as PR reviewers?', Boolean(initial.pr?.reviewers_from_ticket_approvers));
+  const reviewersFromApprovers = await yesNo('Add ticket approvers as PR reviewers?', Boolean(existing?.reviewers_from_ticket_approvers));
 
-  // Protections
-  const requireChecks = await yesNo('Require status checks? (metadata only)', Boolean(initial.protections?.require_status_checks));
-  const disallowForce = await yesNo('Disallow force push? (metadata only)', Boolean(initial.protections?.disallow_force_push));
-
-  const record: RepoConfig = {
-    id,
-    provider: provider as RepoConfig['provider'],
-    ...(provider !== 'local' ? { remote: remote.trim() } : {}),
-    default_branch: defaultBranch.trim(),
-    branch_prefix: { epic: epicPrefix, story: storyPrefix, subtask: subtaskPrefix, bug: bugPrefix },
-    pr: {
-      open_by_default: openByDefault,
-      base: prBase.trim() === '' ? undefined : prBase.trim(),
-      labels: prLabels,
-      reviewers_from_ticket_approvers: reviewersFromApprovers,
-    },
-    protections: {
-      require_status_checks: requireChecks,
-      disallow_force_push: disallowForce,
-    },
+  return {
+    open_by_default: openByDefault,
+    base: prBase.trim() === '' ? undefined : prBase.trim(),
+    labels,
+    reviewers_from_ticket_approvers: reviewersFromApprovers,
   };
+}
 
-  // Final confirmation summary
-  console.log(c.heading('Repository configuration:'));
-  console.log(`  id: ${c.id(record.id)}`);
-  console.log(`  provider: ${record.provider}`);
-  console.log(`  remote: ${record.remote}`);
-  console.log(`  default_branch: ${record.default_branch}`);
-  console.log(
-    `  branch_prefix: epic=${record.branch_prefix?.epic}, story=${record.branch_prefix?.story}, subtask=${record.branch_prefix?.subtask}, bug=${record.branch_prefix?.bug}`,
-  );
-  if (record.pr) {
-    console.log(
-      `  pr: open_by_default=${record.pr.open_by_default ? 'yes' : 'no'}, base=${record.pr.base ?? '-'}, labels=${(record.pr.labels ?? []).join(',') || '-'}, reviewers_from_ticket_approvers=${
-        record.pr.reviewers_from_ticket_approvers ? 'yes' : 'no'
-      }`,
-    );
-  }
-  if (record.protections) {
-    console.log(
-      `  protections: require_status_checks=${record.protections.require_status_checks ? 'yes' : 'no'}, disallow_force_push=${record.protections.disallow_force_push ? 'yes' : 'no'}`,
-    );
-  }
-  const ok = await yesNo('Save this repository?', true);
-  if (!ok) {
-    console.log('Aborted. No changes saved.');
-    return initial; // not used further
-  }
-  return record;
+async function promptProtections(existing: RepoConfig['protections'] | undefined): Promise<RepoConfig['protections']> {
+  const requireChecks = await yesNo('Require status checks? (metadata only)', Boolean(existing?.require_status_checks));
+  const disallowForce = await yesNo('Disallow force push? (metadata only)', Boolean(existing?.disallow_force_push));
+  return {
+    require_status_checks: requireChecks,
+    disallow_force_push: disallowForce,
+  };
 }
 
 function splitCsv(value?: string): string[] {

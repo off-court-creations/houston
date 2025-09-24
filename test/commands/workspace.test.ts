@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import YAML from 'yaml';
-import { registerWorkspaceCommand } from '../../src/commands/workspace.js';
+import { registerWorkspaceCommand, buildSetupQueue, type SetupFollowUpChoices } from '../../src/commands/workspace.js';
 import { registerRepoCommand } from '../../src/commands/repo.js';
 import { registerTicketCommand } from '../../src/commands/ticket.js';
 
@@ -106,5 +106,31 @@ describe('workspace command suite', () => {
     expect(fs.existsSync(path.join(targetDir, 'tickets', 'EPIC'))).toBe(true);
     expect(fs.existsSync(path.join(targetDir, 'transitions.yaml'))).toBe(true);
     fs.rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  it('builds a setup queue honoring follow-up choices', () => {
+    const choices: SetupFollowUpChoices = {
+      addUsers: true,
+      addComponents: false,
+      addLabels: true,
+      authLogin: false,
+      addRepos: true,
+      newEpic: false,
+      newStory: true,
+      newSubtask: false,
+      newSprint: true,
+      planBacklog: false,
+    };
+    const queue = buildSetupQueue('/tmp/ws', choices);
+    expect(queue).toEqual([
+      'cd /tmp/ws',
+      'houston user add',
+      'houston label add',
+      'houston repo add',
+      'houston ticket new story --interactive',
+      'houston sprint new --interactive',
+      'houston check',
+      'houston workspace info',
+    ]);
   });
 });
