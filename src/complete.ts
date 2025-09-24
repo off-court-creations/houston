@@ -216,7 +216,9 @@ const TESTED_SUBCOMMANDS: Record<string, string[]> = {
   user: ['add', 'info', 'list'],
   component: ['add'],
   label: ['add'],
-  ticket: ['new'],
+  ticket: ['new', 'assign', 'status', 'label', 'link', 'show', 'time', 'code', 'list'],
+  code: ['start', 'link', 'open-pr', 'sync'],
+  time: ['log'],
 };
 
 function listSubcommandNames(cmd: Command, pathSegs: string[] = []): string[] {
@@ -255,6 +257,49 @@ function suggestForArgument(pathSegs: string[], consumedArgs: string[], cur: str
   if (pathEq(pathSegs, ['ticket', 'new']) && consumedArgs.length === 0) {
     const values = ['epic', 'story', 'subtask'];
     return filterByPrefix(values, cur);
+  }
+
+  // ticket show <ticketId>
+  if (pathEq(pathSegs, ['ticket', 'show']) && consumedArgs.length === 0) {
+    const ids = (_inventory?.tickets ?? []).map((t) => t.id);
+    return filterByPrefix(ids, cur);
+  }
+
+  // ticket assign <ticketId> <userId>
+  if (pathEq(pathSegs, ['ticket', 'assign'])) {
+    if (consumedArgs.length === 0) {
+      const ids = (_inventory?.tickets ?? []).map((t) => t.id);
+      return filterByPrefix(ids, cur);
+    }
+    if (consumedArgs.length === 1) {
+      const users = _inventory?.users ?? [];
+      return filterByPrefix(users, cur);
+    }
+  }
+
+  // ticket status <ticketId> <status>
+  if (pathEq(pathSegs, ['ticket', 'status'])) {
+    if (consumedArgs.length === 0) {
+      const ids = (_inventory?.tickets ?? []).map((t) => t.id);
+      return filterByPrefix(ids, cur);
+    }
+    if (consumedArgs.length === 1) {
+      // Suggest union of statuses from transitions
+      const map = _inventory?.transitions ?? {} as any;
+      const statuses = new Set<string>();
+      for (const type of Object.keys(map || {})) {
+        const m = (map as any)[type] as Record<string, string[]>;
+        for (const from of Object.keys(m || {})) statuses.add(from);
+        for (const to of Object.values(m || {}).flat()) statuses.add(to);
+      }
+      return filterByPrefix(Array.from(statuses.values()).sort(), cur);
+    }
+  }
+
+  // ticket time log <ticketId> <minutes> [note]
+  if (pathEq(pathSegs, ['ticket', 'time', 'log']) && consumedArgs.length === 0) {
+    const ids = (_inventory?.tickets ?? []).map((t) => t.id);
+    return filterByPrefix(ids, cur);
   }
 
   return [];
@@ -316,6 +361,21 @@ function suggestForOptionValue(
   }
 
   if (pathEq(pathSegs, ['ticket', 'new'])) {
+    // Code-linking flags
+    if (name === '--repo') {
+      const repos = (inventory?.repos ?? []).map((r) => r.id);
+      return filterByPrefix(repos, prefixWord);
+    }
+    if (name === '--branch' || name === '--base' || name === '--path') {
+      const repos = (inventory?.repos ?? []).map((r) => r.id + ':');
+      // If the user is typing repoId:..., suggest repoId: entries up to the colon.
+      const colon = prefixWord.indexOf(':');
+      if (colon === -1) {
+        return filterByPrefix(repos, prefixWord);
+      }
+      // After colon, we can't infer values; return empty.
+      return [];
+    }
     if (name === '--assignee' || name === '--approvers') {
       const users = inventory?.users ?? [];
       if (name === '--approvers') return applyCommaList(prefixWord, users);
@@ -355,6 +415,80 @@ function suggestForOptionValue(
           ])
         : [];
       return filterByPrefix(suggestions, prefixWord);
+    }
+  }
+
+  // ticket list filters
+  if (pathEq(pathSegs, ['ticket', 'list'])) {
+    if (name === '--type' || name === '-t') {
+      return applyCommaList(prefixWord, ['epic', 'story', 'subtask', 'bug']);
+    }
+    if (name === '--assignee' || name === '-a') {
+      const users = inventory?.users ?? [];
+      return applyCommaList(prefixWord, users);
+    }
+    if (name === '--component' || name === '-c') {
+      const comps = inventory?.components ?? [];
+      return applyCommaList(prefixWord, comps);
+    }
+    if (name === '--label' || name === '-l') {
+      const labels = inventory?.labels ?? [];
+      return applyCommaList(prefixWord, labels);
+    }
+    if (name === '--repo' || name === '-r') {
+      const repos = (inventory?.repos ?? []).map((r) => r.id);
+      return applyCommaList(prefixWord, repos);
+    }
+    if (name === '--sprint') {
+      const sprints = (inventory?.sprints ?? []).map((s) => s.id);
+      return applyCommaList(prefixWord, sprints);
+    }
+    if (name === '--status' || name === '-s') {
+      const map = inventory?.transitions ?? {} as any;
+      const statuses = new Set<string>();
+      for (const type of Object.keys(map || {})) {
+        const m = (map as any)[type] as Record<string, string[]>;
+        for (const from of Object.keys(m || {})) statuses.add(from);
+        for (const to of Object.values(m || {}).flat()) statuses.add(to);
+      }
+      return applyCommaList(prefixWord, Array.from(statuses.values()).sort());
+    }
+    if (name === '--sort') {
+      return filterByPrefix(['id', 'status', 'assignee', 'updated'], prefixWord);
+    }
+  }
+
+  // ticket show options
+  if (pathEq(pathSegs, ['ticket', 'show']) && name === '--file') {
+    return filterByPrefix(['ticket', 'description'], prefixWord);
+  }
+
+  // ticket link options
+  if (pathEq(pathSegs, ['ticket', 'link']) && (name === '--child' || name === '--parent')) {
+    const ids = (inventory?.tickets ?? []).map((t) => t.id);
+    return filterByPrefix(ids, prefixWord);
+  }
+
+  // ticket code start/link/open-pr/sync options
+  if (pathEq(pathSegs, ['ticket', 'code', 'start']) || pathEq(pathSegs, ['ticket', 'code', 'link'])) {
+    if (name === '--repo') {
+      const repos = (inventory?.repos ?? []).map((r) => r.id);
+      return filterByPrefix(repos, prefixWord);
+    }
+    if (name === '--branch' || name === '--base') {
+      const repos = (inventory?.repos ?? []).map((r) => r.id + ':');
+      const colon = prefixWord.indexOf(':');
+      if (colon === -1) return filterByPrefix(repos, prefixWord);
+      return [];
+    }
+  }
+  if (pathEq(pathSegs, ['ticket', 'code', 'open-pr']) || pathEq(pathSegs, ['ticket', 'code', 'sync'])) {
+    if (name === '--repo') {
+      const repos = (inventory?.repos ?? []).map((r) => r.id);
+      return filterByPrefix(repos, prefixWord);
+    }
+    if (name === '--base' || name === '--head') {
+      return [];
     }
   }
 

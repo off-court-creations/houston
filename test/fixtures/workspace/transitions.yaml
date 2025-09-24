@@ -1,7 +1,8 @@
 allowed:
   epic:
-    Backlog: ["Ready", "Canceled", "Archived"]
-    Ready: ["In Progress", "Canceled"]
+    Backlog: ["Planned", "Ready", "Blocked", "Canceled", "Archived"]
+    Planned: ["Ready", "Blocked", "Canceled"]
+    Ready: ["In Progress", "Blocked", "Canceled"]
     In Progress: ["Blocked", "In Review", "Canceled"]
     Blocked: ["In Progress", "In Review", "Canceled"]
     In Review: ["In Progress", "Done", "Canceled"]
@@ -9,8 +10,9 @@ allowed:
     Archived: []
     Canceled: []
   story:
-    Backlog: ["Ready", "Canceled"]
-    Ready: ["In Progress", "Canceled"]
+    Backlog: ["Planned", "Ready", "Blocked", "Canceled"]
+    Planned: ["Ready", "Blocked", "Canceled"]
+    Ready: ["In Progress", "Blocked", "Canceled"]
     In Progress: ["Blocked", "In Review", "Canceled"]
     Blocked: ["In Progress", "In Review", "Canceled"]
     In Review: ["In Progress", "Done", "Canceled"]
@@ -18,8 +20,9 @@ allowed:
     Archived: []
     Canceled: []
   subtask:
-    Backlog: ["Ready", "Canceled"]
-    Ready: ["In Progress", "Canceled"]
+    Backlog: ["Planned", "Ready", "Blocked", "Canceled"]
+    Planned: ["Ready", "Blocked", "Canceled"]
+    Ready: ["In Progress", "Blocked", "Canceled"]
     In Progress: ["Blocked", "In Review", "Canceled"]
     Blocked: ["In Progress", "In Review", "Canceled"]
     In Review: ["Done", "Canceled"]
@@ -27,8 +30,9 @@ allowed:
     Archived: []
     Canceled: []
   bug:
-    Backlog: ["Ready", "Canceled"]
-    Ready: ["In Progress", "Canceled"]
+    Backlog: ["Planned", "Ready", "Blocked", "Canceled"]
+    Planned: ["Ready", "Blocked", "Canceled"]
+    Ready: ["In Progress", "Blocked", "Canceled"]
     In Progress: ["Blocked", "In Review", "Canceled"]
     Blocked: ["In Progress", "In Review", "Canceled"]
     In Review: ["Done", "Canceled"]

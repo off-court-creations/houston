@@ -130,6 +130,9 @@ export function buildWorkspaceAnalytics(inventory: WorkspaceInventory): Workspac
     .map((sprint) => toSprintOverview(sprint, sprintScopeMap.get(sprint.id), ticketsById))
     .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''));
 
+  // Overlay sprint scope membership onto ticket sprintId for clearer reporting
+  assignSprintIdsFromScopes(ticketsById, sprints);
+
   const backlog = toBacklogOverview(inventory.backlog, ticketsById, 'backlog/backlog.yaml');
   const nextSprint = toBacklogOverview(inventory.nextSprint, ticketsById, 'backlog/next-sprint-candidates.yaml');
 
@@ -324,6 +327,51 @@ function pickTickets(ids: string[], ticketsById: Map<string, TicketOverview>): T
 
 function dedupe(ids: string[]): string[] {
   return Array.from(new Set(ids));
+}
+
+function statusWeight(phase: SprintPhase): number {
+  switch (phase) {
+    case 'active':
+      return 3;
+    case 'upcoming':
+      return 2;
+    case 'unknown':
+      return 1;
+    case 'completed':
+    default:
+      return 0;
+  }
+}
+
+function assignSprintIdsFromScopes(
+  ticketsById: Map<string, TicketOverview>,
+  sprints: SprintOverview[],
+): void {
+  // Sort sprints by desirability: active > upcoming > unknown > completed; tie-break by start date desc
+  const sorted = sprints.slice().sort((a, b) => {
+    const w = statusWeight(b.status) - statusWeight(a.status);
+    if (w !== 0) return w;
+    const ad = a.startDate ?? '';
+    const bd = b.startDate ?? '';
+    return (bd || '').localeCompare(ad || '');
+  });
+
+  for (const sprint of sorted) {
+    const all = [
+      ...sprint.scope.epics,
+      ...sprint.scope.stories,
+      ...sprint.scope.subtasks,
+      ...sprint.scope.bugs,
+    ];
+    for (const t of all) {
+      const current = ticketsById.get(t.id);
+      if (!current) continue;
+      // Prefer first assignment based on sorted order; do not overwrite if already assigned by a higher priority sprint
+      if (!current.sprintId) {
+        current.sprintId = sprint.id;
+      }
+    }
+  }
 }
 
 function toBacklogOverview(

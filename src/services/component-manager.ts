@@ -110,8 +110,8 @@ export async function ensureComponentRegistered(
   }
 
   if (interactive && canPrompt()) {
-    const routing = loadComponentRouting(config);
-    const initialRepos = routing.routes[normalized] ?? [];
+  const routing = loadComponentRouting(config);
+  const initialRepos = (routing.routes[normalized] ?? []).map((r) => r.repoId);
     const details = await promptComponentDetails(config, {
       initialId: normalized,
       allowEditId: true,

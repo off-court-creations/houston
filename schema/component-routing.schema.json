@@ -18,7 +18,7 @@
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$"
         }
       }
     },
@@ -30,7 +30,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$"
           }
         },
         "story": {
@@ -38,7 +38,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$"
           }
         },
         "subtask": {
@@ -46,7 +46,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$"
           }
         },
         "bug": {
@@ -54,7 +54,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$"
           }
         }
       },

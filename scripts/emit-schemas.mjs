@@ -85,7 +85,7 @@ const ticketBase = {
     },
     status: {
       type: 'string',
-      enum: ['Backlog', 'Ready', 'In Progress', 'Blocked', 'In Review', 'Done', 'Archived', 'Canceled'],
+      enum: ['Backlog', 'Planned', 'Ready', 'In Progress', 'Blocked', 'In Review', 'Done', 'Archived', 'Canceled'],
     },
     parent_id: {
       anyOf: [
@@ -151,7 +151,7 @@ const ticketBase = {
       required: ['repo_id', 'branch', 'created_by', 'created_at'],
       properties: {
         repo_id: { $ref: '#/$defs/nonEmptyString' },
-        path: { $ref: '#/$defs/nonEmptyString' },
+        path: { $ref: '#/$defs/relativeFilePath' },
         branch: {
           type: 'string',
           pattern: CANONICAL_BRANCH_PATTERN,
@@ -423,16 +423,16 @@ const componentRouting = {
         type: 'array',
         minItems: 1,
         uniqueItems: true,
-        items: { type: 'string', minLength: 1 },
+        items: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$' },
       },
     },
     defaults: {
       type: 'object',
       properties: {
-        epic: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
-        story: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
-        subtask: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
-        bug: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
+        epic: { type: 'array', uniqueItems: true, items: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$' } },
+        story: { type: 'array', uniqueItems: true, items: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$' } },
+        subtask: { type: 'array', uniqueItems: true, items: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$' } },
+        bug: { type: 'array', uniqueItems: true, items: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*(?:@[A-Za-z0-9./_-]+)?$' } },
       },
       additionalProperties: false,
     },
@@ -465,7 +465,7 @@ const transitions = {
   $defs: {
     status: {
       type: 'string',
-      enum: ['Backlog', 'Ready', 'In Progress', 'Blocked', 'In Review', 'Done', 'Archived', 'Canceled'],
+      enum: ['Backlog', 'Planned', 'Ready', 'In Progress', 'Blocked', 'In Review', 'Done', 'Archived', 'Canceled'],
     },
     typeTransitions: {
       type: 'object',

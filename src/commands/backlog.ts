@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { loadConfig } from '../config/config.js';
 import { loadBacklog, saveBacklog } from '../services/backlog-store.js';
-import { loadTicket } from '../services/ticket-store.js';
+import { loadTicket, saveTicket } from '../services/ticket-store.js';
 import { loadConfig as loadCliConfig } from '../config/config.js';
 import { collectWorkspaceInventory } from '../services/workspace-inventory.js';
 import { buildWorkspaceAnalytics, type TicketOverview, type WorkspaceAnalytics } from '../services/workspace-analytics.js';
@@ -10,6 +10,7 @@ import { c } from '../lib/colors.js';
 import { emptyScope, loadSprint, saveSprintScope, ensureSprintStructure } from '../services/sprint-store.js';
 import { resolveTicketIds } from '../services/ticket-id-resolver.js';
 import { shortenTicketId } from '../lib/id.js';
+import { resolveActor } from '../utils/runtime.js';
 import {
   intro as uiIntro,
   outro as uiOutro,
@@ -247,6 +248,7 @@ function applyBacklogAssignments(config: ReturnType<typeof loadConfig>, assignme
     saveBacklog(config, backlog);
   }
 
+  const actor = resolveActor();
   for (const [sprintId, tickets] of validAssignments) {
     ensureSprintStructure(config, sprintId);
     const sprint = loadSprint(config, sprintId);
@@ -273,6 +275,16 @@ function applyBacklogAssignments(config: ReturnType<typeof loadConfig>, assignme
           continue;
       }
       added.push(ticketId);
+
+      // If ticket status is Backlog, move it to Planned when added to a sprint
+      const currentStatus = (ticket as Record<string, unknown>).status as string | undefined;
+      if (currentStatus === 'Backlog') {
+        (ticket as Record<string, unknown>).status = 'Planned';
+        saveTicket(config, ticket as any, {
+          actor,
+          history: { op: 'status', from: 'Backlog', to: 'Planned' },
+        });
+      }
     }
     saveSprintScope(config, sprintId, scope);
     sprintUpdates.push({ sprintId, tickets: added });

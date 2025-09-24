@@ -58,7 +58,7 @@ export class GitHubProvider implements Provider {
     return { number: data.number, url: data.html_url };
   }
 
-  private async branchExists(branch: string): Promise<boolean> {
+  async branchExists(branch: string): Promise<boolean> {
     const url = `${this.apiBase}/repos/${this.remote.owner}/${this.remote.repo}/git/ref/heads/${encodeURIComponent(branch)}`;
     const token = await resolveTokenAsync(this.host);
     const response = await fetch(url, { headers: headers(token) });

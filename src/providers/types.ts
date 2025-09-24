@@ -19,6 +19,9 @@ export interface ProviderContext {
 }
 
 export interface Provider {
+  /** Ensure a branch exists on the remote, creating it from base if missing. */
   ensureBranch(params: BranchParams): Promise<void>;
+  /** Check whether a branch exists on the remote. */
+  branchExists(branch: string): Promise<boolean>;
   openPullRequest(params: PullRequestParams): Promise<{ number: number; url: string }>;
 }

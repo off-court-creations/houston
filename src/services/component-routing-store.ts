@@ -9,9 +9,14 @@ interface ComponentRoutingFile {
   defaults?: Record<string, string[]>;
 }
 
+export interface ComponentRoute {
+  repoId: string;
+  path?: string;
+}
+
 export interface ComponentRouting {
-  routes: Record<string, string[]>;
-  defaults?: Record<string, string[]>;
+  routes: Record<string, ComponentRoute[]>;
+  defaults?: Record<string, ComponentRoute[]>;
 }
 
 function resolveRoutingFile(config: CliConfig): string {
@@ -24,24 +29,46 @@ export function loadComponentRouting(config: CliConfig): ComponentRouting {
     return { routes: {} };
   }
   const data = readYamlFile<ComponentRoutingFile>(file);
-  const routes: Record<string, string[]> = {};
+  const routes: Record<string, ComponentRoute[]> = {};
   if (data.routes && typeof data.routes === 'object') {
     for (const [key, value] of Object.entries(data.routes)) {
-      if (Array.isArray(value)) {
-        routes[key] = value.filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '');
+      if (!Array.isArray(value)) continue;
+      const items: ComponentRoute[] = [];
+      for (const raw of value) {
+        if (typeof raw !== 'string') continue;
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+        const at = trimmed.indexOf('@');
+        if (at === -1) {
+          items.push({ repoId: trimmed });
+        } else {
+          const repoId = trimmed.slice(0, at).trim();
+          const path = trimmed.slice(at + 1).trim();
+          items.push({ repoId, path: path || undefined });
+        }
       }
+      routes[key] = items;
     }
   }
-  const defaults: Record<string, string[]> | undefined = data.defaults && typeof data.defaults === 'object'
-    ? Object.fromEntries(
-        Object.entries(data.defaults).map(([key, value]) => [
-          key,
-          Array.isArray(value)
-            ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '')
-            : [],
-        ]),
-      )
-    : undefined;
+  const defaults: Record<string, ComponentRoute[]> | undefined =
+    data.defaults && typeof data.defaults === 'object'
+      ? Object.fromEntries(
+          Object.entries(data.defaults).map(([key, value]) => [
+            key,
+            Array.isArray(value)
+              ? value
+                  .filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '')
+                  .map((raw) => {
+                    const at = raw.indexOf('@');
+                    if (at === -1) return { repoId: raw } as ComponentRoute;
+                    const repoId = raw.slice(0, at).trim();
+                    const path = raw.slice(at + 1).trim();
+                    return { repoId, path: path || undefined } as ComponentRoute;
+                  })
+              : [],
+          ]),
+        )
+      : undefined;
   return { routes, defaults };
 }
 
@@ -49,12 +76,16 @@ export function setComponentRepos(config: CliConfig, componentId: string, repoId
   const file = resolveRoutingFile(config);
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true });
-  const routing = loadComponentRouting(config);
+  // Persist as plain repo ids (no path) to keep editing simple.
+  const routingFile: ComponentRoutingFile = fs.existsSync(file)
+    ? readYamlFile<ComponentRoutingFile>(file)
+    : { routes: {} };
+  routingFile.routes = routingFile.routes ?? {};
   if (repoIds.length > 0) {
-    routing.routes[componentId] = Array.from(new Set(repoIds)).sort();
+    routingFile.routes[componentId] = Array.from(new Set(repoIds)).sort();
   } else {
-    delete routing.routes[componentId];
+    delete routingFile.routes[componentId];
   }
-  writeYamlFile(file, routing);
+  writeYamlFile(file, routingFile);
   recordChange('routing');
 }

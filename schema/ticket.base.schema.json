@@ -83,6 +83,7 @@
       "type": "string",
       "enum": [
         "Backlog",
+        "Planned",
         "Ready",
         "In Progress",
         "Blocked",
@@ -234,7 +235,7 @@
           "$ref": "#/$defs/nonEmptyString"
         },
         "path": {
-          "$ref": "#/$defs/nonEmptyString"
+          "$ref": "#/$defs/relativeFilePath"
         },
         "branch": {
           "type": "string",

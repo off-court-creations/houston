@@ -42,6 +42,7 @@
       "type": "string",
       "enum": [
         "Backlog",
+        "Planned",
         "Ready",
         "In Progress",
         "Blocked",

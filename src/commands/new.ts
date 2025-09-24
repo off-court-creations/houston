@@ -4,18 +4,21 @@ import process from 'node:process';
 import { loadConfig, type CliConfig } from '../config/config.js';
 import { generateTicketId, shortenTicketId } from '../lib/id.js';
 import { resolveTicketId } from '../services/ticket-id-resolver.js';
-import { promptText, promptMultiSelect, promptSelect, canPrompt } from '../lib/interactive.js';
+import { promptText, promptMultiSelect, promptSelect, canPrompt, promptConfirm } from '../lib/interactive.js';
 import { loadBacklog, saveBacklog } from '../services/backlog-store.js';
 import { resolveTicketPaths } from '../services/path-resolver.js';
 import { collectWorkspaceInventory, type TicketInfo, type TicketType } from '../services/workspace-inventory.js';
 import { hasPerson, upsertPerson } from '../services/people-store.js';
 import { ensureComponentRegistered, normalizeComponentList } from '../services/component-manager.js';
 import { loadComponents } from '../services/component-store.js';
-import { createTicket, type TicketRecord } from '../services/ticket-store.js';
+import { createTicket, type TicketRecord, type HistoryEventInput, loadTicket } from '../services/ticket-store.js';
 import { normalizeUserId } from '../utils/user-id.js';
 import { resolveActor, resolveTimestamp } from '../utils/runtime.js';
 import type { HistoryEvent } from '../lib/history.js';
 import { c } from '../lib/colors.js';
+import { listRepos, getRepo } from '../services/repo-registry.js';
+import { loadComponentRouting } from '../services/component-routing-store.js';
+import { createProvider } from '../providers/index.js';
 
 interface NewOptions {
   interactive?: boolean;
@@ -30,6 +33,14 @@ interface NewOptions {
   approvers?: string;
   storyPoints?: number;
   status?: string;
+  // Code integration (interactive and non-interactive)
+  repo?: string[]; // --repo
+  branch?: string[]; // --branch (supports repo:branch)
+  base?: string[]; // --base (supports repo:base)
+  path?: string[]; // --path (supports repo:path)
+  createBranch?: boolean; // --create-branch
+  provider?: boolean; // --no-provider toggles to false
+  verifyExisting?: boolean; // --no-verify-existing toggles to false
 }
 
 const TYPE_BRANCH_STRATEGY: Record<'epic' | 'story' | 'subtask' | 'bug', 'per-story' | 'per-subtask' | 'per-bug'> = {
@@ -58,13 +69,36 @@ export function registerNewCommand(program: Command): void {
     .option('--approvers <list>', 'comma separated approver ids')
     .option('--story-points <points>', 'story points for subtask/bug', parsePositiveInteger)
     .option('--status <status>', 'initial status', DEFAULT_STATUS)
+    // Code integration flags
+    .option('--repo <repoId>', 'link repository id (repeatable)', collectValues, [])
+    .option(
+      '--branch <value>',
+      'branch to link or create; for multiple repos use repo:branch (repeatable)',
+      collectValues,
+      [],
+    )
+    .option(
+      '--base <value>',
+      'base branch override for creation; for multiple repos use repo:base (repeatable)',
+      collectValues,
+      [],
+    )
+    .option(
+      '--path <value>',
+      'subdirectory path in the repo; for multiple repos use repo:path (repeatable)',
+      collectValues,
+      [],
+    )
+    .option('--create-branch', 'create a new branch for linked repos')
+    .option('--no-verify-existing', 'skip verifying existing branch presence on remote')
+    .option('--no-provider', 'skip remote provider integration')
     .option('-i, --interactive', 'prompt for required fields')
     .action(async (type: string, opts: NewOptions) => {
       await handleNewCommand(type as TicketRecord['type'], opts);
     })
     .addHelpText(
       'after',
-      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-550e8400-e29b-41d4-a716-446655440000 --story-points 3\n  $ houston ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ houston ticket new story --interactive\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n`,
+      `\nExamples:\n  $ houston ticket new story --title "Checkout v2" --assignee user:alice --components web\n  $ houston ticket new subtask --title "Add unit tests" --assignee user:bob --components web --parent ST-550e8400-e29b-41d4-a716-446655440000 --story-points 3\n  $ houston ticket new bug --title "Crash on submit" --assignee user:alice --components api --labels triage --story-points 2\n  $ houston ticket new story --interactive\n  $ houston ticket new story --title "Payments polish" --assignee user:alice --components payments \\\n      --repo repo.web --create-branch --path repo.web:apps/web\n  $ houston ticket new subtask --title "Add unit tests" --assignee user:bob --components checkout \\\n      --parent ST-... --story-points 3 --repo repo.checkout --branch repo.checkout:feat/ST-...--tests\n\nNotes:\n  - Required fields can be provided via flags or interactively with --interactive.\n  - New assignees/components are added to workspace taxonomies as needed.\n  - Use --repo/--create-branch/--branch/--base/--path to link code on creation.\n`,
     );
 }
 
@@ -497,13 +531,28 @@ async function finalizeTicketCreation(
 
   pruneUndefined(ticket as Record<string, unknown>);
 
-  const history: HistoryEvent = {
+  // Code integration: link repos and optionally create/link branches
+  const codeHistory: HistoryEventInput[] = [];
+  await enrichTicketWithCodeLinks({
+    config,
+    ticket,
+    actor,
+    now,
+    type,
+    parentId: (ticket as Record<string, unknown>).parent_id as string | null,
+    opts,
+    interactive: interactiveSession,
+  }, codeHistory);
+
+  const creationEvent: HistoryEvent = {
     actor,
     op: 'create',
     to: { status },
   };
 
-  createTicket(config, ticket, [history]);
+  // Persist with combined history (createTicket requires actor on each event)
+  const codeHistoryWithActor = codeHistory.map((e) => ({ actor, ...e }));
+  createTicket(config, ticket, [creationEvent, ...codeHistoryWithActor]);
 
   if (type === 'epic' || type === 'story' || type === 'bug' || type === 'subtask') {
     const backlog = loadBacklog(config);
@@ -530,4 +579,309 @@ function defaultDueDate(): string {
   const m = String(due.getUTCMonth() + 1).padStart(2, '0');
   const d = String(due.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+// Helpers
+
+function collectValues(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+interface CodeEnrichmentContext {
+  config: CliConfig;
+  ticket: TicketRecord;
+  actor: string;
+  now: string;
+  type: TicketRecord['type'];
+  parentId: string | null;
+  opts: NewOptions;
+  interactive: boolean;
+}
+
+async function enrichTicketWithCodeLinks(
+  ctx: CodeEnrichmentContext,
+  historyOut: HistoryEventInput[],
+): Promise<void> {
+  const { config, ticket, actor, now, type, parentId, opts, interactive } = ctx;
+
+  // Determine selected repos from flags (non-interactive)
+  let selectedRepos = new Set<string>(opts.repo ?? []);
+  // Also accept repo:branch/base specifiers as implicit repo selectors
+  for (const v of opts.branch ?? []) {
+    const [rid] = parseKeyed(v);
+    if (rid) selectedRepos.add(rid);
+  }
+  for (const v of opts.base ?? []) {
+    const [rid] = parseKeyed(v);
+    if (rid) selectedRepos.add(rid);
+  }
+
+  // Interactive selection if none provided non-interactively
+  if (interactive && selectedRepos.size === 0) {
+    const linkNow = await promptConfirm('Link this ticket to a repository now?', type !== 'epic');
+    if (linkNow) {
+      let repos: string[] = [];
+      try {
+        repos = listRepos(config).map((r) => r.id);
+      } catch {
+        repos = [];
+      }
+      if (repos.length === 0) {
+        console.log(c.warn('No repositories configured in repos/repos.yaml. Skipping repo linking.'));
+      } else {
+        const suggestions = suggestReposFromComponents(config, ticket);
+        const chosen = await promptMultiSelect('Select repositories to link', repos, {
+          defaultValue: suggestions.repoIds,
+          required: true,
+        });
+        selectedRepos = new Set(chosen);
+      }
+    }
+  }
+
+  if (selectedRepos.size === 0) {
+    return; // nothing to do
+  }
+
+  // Parse mappings from flags when provided
+  const repoList = Array.from(selectedRepos);
+  const branchMap = mapByRepo(opts.branch ?? [], repoList, 'branch');
+  const baseMap = mapByRepo(opts.base ?? [], repoList, 'base');
+  const pathMap = mapByRepo(opts.path ?? [], repoList, 'path');
+
+  // Defaults
+  const providerEnabled = opts.provider !== false; // default true unless --no-provider
+  const verifyExisting = opts.verifyExisting !== false; // default true unless --no-verify-existing
+
+  const usedNonInteractiveCodeFlags =
+    (opts.repo && opts.repo.length > 0) ||
+    (opts.branch && opts.branch.length > 0) ||
+    (opts.base && opts.base.length > 0) ||
+    (opts.path && opts.path.length > 0) ||
+    typeof opts.createBranch !== 'undefined' ||
+    opts.provider === false ||
+    opts.verifyExisting === false;
+
+  // Suggest default branch name once for this ticket (schema-compliant prefix)
+  const defaultBranchName = generateBranchName(ticket.id, (ticket as Record<string, unknown>).title as string | undefined, type);
+
+  const suggestions = suggestReposFromComponents(config, ticket);
+  for (const repoId of repoList) {
+    const repoCfg = getRepo(config, repoId); // validates id
+
+    // Decide whether to create a new branch or link an existing one
+    let create = Boolean(opts.createBranch);
+    let existingBranch = branchMap[repoId];
+    if (!opts.createBranch) {
+      // No explicit create flag: default to create for non-epics when branch unspecified
+      create = type !== 'epic' && !existingBranch;
+    }
+
+    // Interactive refinement when allowed and no explicit flags
+    if (interactive && !usedNonInteractiveCodeFlags) {
+      const defaultCreate = type !== 'epic';
+      create = await promptConfirm(`[${repoId}] Create a new branch for this ticket?`, defaultCreate);
+    }
+
+    // Resolve base branch (for creation flow)
+    const inheritedBase = await computeBaseBranch(config, repoId, type, parentId);
+    const baseOverride = baseMap[repoId];
+    let baseBranch = baseOverride ?? inheritedBase;
+    if (interactive && create && !usedNonInteractiveCodeFlags) {
+      const input = await promptText(`[${repoId}] Base branch`, {
+        defaultValue: baseBranch,
+        required: true,
+      });
+      baseBranch = input.trim();
+    }
+
+    // Resolve branch name
+    let branchName = existingBranch ?? defaultBranchName;
+    if (interactive && (create || !existingBranch) && !usedNonInteractiveCodeFlags) {
+      const input = await promptText(`[${repoId}] Branch name`, {
+        defaultValue: branchName,
+        required: true,
+      });
+      branchName = input.trim();
+    }
+
+    // Resolve optional path
+    let subPath: string | undefined = pathMap[repoId] ?? suggestions.pathByRepo[repoId];
+    if (interactive && !usedNonInteractiveCodeFlags) {
+      const input = await promptText(`[${repoId}] Subdirectory path (optional)`, {
+        defaultValue: subPath,
+        allowEmpty: true,
+      });
+      subPath = input.trim() === '' ? undefined : input.trim();
+    }
+
+    // Record link on ticket
+    const linkEntry: Record<string, unknown> = {
+      repo_id: repoId,
+      branch: branchName,
+      created_by: actor,
+      created_at: now,
+      last_synced_at: now,
+    };
+    if (subPath) {
+      const clean = normalizeRepoPath(subPath);
+      if (!isValidRelativePath(clean)) {
+        console.log(c.warn(`[${repoId}] Ignoring invalid subdirectory path: ${subPath}`));
+      } else {
+        (linkEntry as any).path = clean;
+      }
+    }
+    (ticket.code as Record<string, unknown>).repos = [
+      ...(((ticket.code as { repos?: unknown }).repos as Record<string, unknown>[] | undefined) ?? []),
+      linkEntry,
+    ];
+
+    // History entry
+    historyOut.push({ op: create ? 'code.branch' : 'code.branch.link', repo_id: repoId, branch: branchName });
+
+    // Remote actions
+    const provider = providerEnabled ? createProvider(repoCfg) : null;
+    if (create) {
+      if (provider) {
+        try {
+          await provider.ensureBranch({ branch: branchName, base: baseBranch });
+        } catch (error) {
+          process.stderr.write(
+            `[warn] Unable to create remote branch for ${repoId}: ${error instanceof Error ? error.message : String(error)}\n`,
+          );
+        }
+      }
+    } else if (verifyExisting && provider) {
+      try {
+        const exists = await provider.branchExists(branchName);
+        if (!exists) {
+          console.log(c.warn(`[${repoId}] Remote branch not found: ${branchName}`));
+        }
+      } catch (error) {
+        process.stderr.write(
+          `[warn] Unable to verify remote branch for ${repoId}: ${error instanceof Error ? error.message : String(error)}\n`,
+        );
+      }
+    }
+  }
+}
+
+function parseKeyed(value: string): [string | null, string] {
+  const idx = value.indexOf(':');
+  if (idx === -1) return [null, value];
+  const key = value.slice(0, idx).trim();
+  const val = value.slice(idx + 1).trim();
+  return [key, val];
+}
+
+function mapByRepo(values: string[], repos: string[], label: string): Record<string, string> {
+  const map: Record<string, string> = {};
+  if (!values || values.length === 0) return map;
+  const set = new Set(repos);
+  for (const raw of values) {
+    const [maybeRepo, val] = parseKeyed(raw);
+    if (!maybeRepo) {
+      if (repos.length !== 1) {
+        throw new Error(`--${label} must be provided as repo:${label} when linking multiple repos`);
+      }
+      map[repos[0]!] = val;
+    } else {
+      if (!set.has(maybeRepo)) {
+        throw new Error(`--${label} provided for unknown repo '${maybeRepo}'. Add with --repo ${maybeRepo}.`);
+      }
+      map[maybeRepo] = val;
+    }
+  }
+  return map;
+}
+
+async function computeBaseBranch(
+  config: CliConfig,
+  repoId: string,
+  type: TicketRecord['type'],
+  parentId: string | null,
+): Promise<string> {
+  try {
+    // Try to inherit base branch from parent chain when available in the same repo
+    if (parentId) {
+      const parent = loadParentTicket(config, parentId);
+      const inRepo = findRepoBranch(parent, repoId);
+      if (inRepo) return inRepo;
+      const maybeGrand = (parent as Record<string, unknown>).parent_id as string | null | undefined;
+      if (maybeGrand) {
+        const grand = loadParentTicket(config, maybeGrand);
+        const inRepo2 = findRepoBranch(grand, repoId);
+        if (inRepo2) return inRepo2;
+      }
+    }
+  } catch {
+    // ignore and fall back
+  }
+  // Fallback: repo PR base or default branch
+  const cfg = getRepo(config, repoId);
+  const base = (cfg.pr && 'base' in cfg.pr ? (cfg.pr as { base?: string }).base : undefined) ?? cfg.default_branch ?? 'main';
+  return base;
+}
+
+function loadParentTicket(config: CliConfig, id: string): TicketRecord {
+  return loadTicket(config, id);
+}
+
+function findRepoBranch(ticket: TicketRecord, repoId: string): string | null {
+  const code = ticket.code as { repos?: { repo_id: string; branch?: string }[] } | undefined;
+  const repo = code?.repos?.find((r) => r.repo_id === repoId);
+  return repo?.branch ?? null;
+}
+
+function generateBranchName(
+  ticketId: string,
+  title: string | undefined,
+  type: TicketRecord['type'],
+): string {
+  const prefixMap: Record<TicketRecord['type'], string> = {
+    epic: 'epic',
+    story: 'feat',
+    subtask: 'task',
+    bug: 'fix',
+  };
+  const prefix = prefixMap[type];
+  const base = (title ?? ticketId)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+  const slug = base.length > 0 ? base : 'work';
+  return `${prefix}/${ticketId}--${slug}`;
+}
+
+function normalizeRepoPath(p: string): string {
+  const norm = p.replace(/\\+/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+  return norm;
+}
+
+function isValidRelativePath(p: string): boolean {
+  // Matches schema's relativeFilePath: must start with ../ or ./ or alnum
+  return /^(\.\.\/|\.\/|[A-Za-z0-9])/.test(p) && !/(^|\/)\.\.(\/|$)/.test(p);
+}
+
+function suggestReposFromComponents(
+  config: CliConfig,
+  ticket: TicketRecord,
+): { repoIds: string[]; pathByRepo: Record<string, string | undefined> } {
+  const routing = loadComponentRouting(config);
+  const components = (ticket as Record<string, unknown>).components as string[] | undefined;
+  const repoIds = new Set<string>();
+  const pathByRepo: Record<string, string | undefined> = {};
+  if (Array.isArray(components)) {
+    for (const comp of components) {
+      const routes = routing.routes[comp] ?? [];
+      for (const route of routes) {
+        repoIds.add(route.repoId);
+        if (route.path && !pathByRepo[route.repoId]) {
+          pathByRepo[route.repoId] = route.path;
+        }
+      }
+    }
+  }
+  return { repoIds: Array.from(repoIds.values()), pathByRepo };
 }
