@@ -15,6 +15,8 @@ import {
   WorkspaceAnalytics,
 } from '../services/workspace-analytics.js';
 import { collectWorkspaceInventory, TicketType } from '../services/workspace-inventory.js';
+import { createWorkspace as createWorkspaceSvc } from '../services/workspace-create.js';
+import { getWorkspaceSnapshot } from '../services/workspace-info.js';
 import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, promptSelect as uiSelect, spinner as uiSpinner } from '../lib/interactive.js';
 import { shortenTicketId } from '../lib/id.js';
 import { setDefaultWorkspaceIfUnset } from '../services/user-config.js';
@@ -151,46 +153,20 @@ export function registerWorkspaceCommand(program: Command): void {
         return runWorkspaceNewInteractive(directory, options);
       }
       const targetDir = path.resolve(process.cwd(), directory ?? '.');
-      ensureDirectory(targetDir);
-      if (!options.force && hasMeaningfulEntries(targetDir)) {
-        throw new Error(`Target directory ${targetDir} is not empty. Use --force to continue.`);
-      }
-      scaffoldWorkspace(targetDir, options.force === true);
-      if (options.git !== false) {
-        initGitRepository(targetDir);
-        try { copyBundledSchemas(path.join(targetDir, 'schema')); } catch {}
-        createInitialCommit(targetDir);
-        if (options.remote) {
-          setRemoteOrigin(targetDir, options.remote);
-          // If auth label provided, persist workspace auth metadata
-          if (options.authLabel) {
-            const host = (options.host ?? 'github.com').trim();
-            const account = `github@${host}#${options.authLabel.trim()}`;
-            try { upsertWorkspaceAuth(targetDir, { provider: 'github', host, account }); } catch {}
-          }
-        } else if (options.createRemote) {
-          const host = (options.host ?? 'github.com').trim();
-          const isPrivate = options.public ? false : true;
-          const account = options.authLabel ? `github@${host}#${options.authLabel.trim()}` : undefined;
-          return createGitHubRepoFromArg(host, options.createRemote, isPrivate, account)
-            .then((url) => {
-              setRemoteOrigin(targetDir, url);
-              if (account) {
-                try { upsertWorkspaceAuth(targetDir, { provider: 'github', host, account }); } catch {}
-              }
-              const shouldPush = resolveInitialPushDecision(targetDir, options);
-              if (shouldPush) pushInitial(targetDir);
-              console.log(c.ok(`Initialized Houston workspace at ${targetDir}`));
-              try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
-            });
-        }
-        const shouldPush = resolveInitialPushDecision(targetDir, options);
-        if (shouldPush) {
-          pushInitial(targetDir);
-        }
-      }
-      console.log(c.ok(`Initialized Houston workspace at ${targetDir}`));
-      try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
+      return createWorkspaceSvc({
+        directory: targetDir,
+        force: options.force,
+        git: options.git,
+        remote: options.remote,
+        createRemote: options.createRemote,
+        host: options.host,
+        private: options.private,
+        public: options.public,
+        push: options.push,
+        authLabel: options.authLabel,
+      }).then((res) => {
+        console.log(c.ok(`Initialized Houston workspace at ${res.workspaceRoot}`));
+      });
     })
     .addHelpText(
       'after',
@@ -202,43 +178,15 @@ export function registerWorkspaceCommand(program: Command): void {
     .description('Show high-level workspace snapshot')
     .option('-j, --json', 'output as JSON')
     .action((options: JsonOption) => {
+      // Payload via shared service for consistency with web/API usage
+      const payload = getWorkspaceSnapshot();
+
+      // Text output remains derived from analytics to preserve existing format
       const { config, analytics } = loadAnalytics();
       const activeSprints = analytics.sprints.filter((sprint) => sprint.status === 'active');
       const upcomingSprints = analytics.sprints.filter((sprint) => sprint.status === 'upcoming');
       const completedSprints = analytics.sprints.filter((sprint) => sprint.status === 'completed');
-      const payload = {
-        workspace: {
-          workspaceRoot: config.workspaceRoot,
-          trackingRoot: config.tracking.root,
-          schemaDir: config.tracking.schemaDir,
-        },
-        summary: analytics.summary,
-        sprints: {
-          active: activeSprints.map(minifySprint),
-          upcoming: upcomingSprints.map(minifySprint),
-          completed: completedSprints.map(minifySprint),
-        },
-        backlog: {
-          path: analytics.backlog.path,
-          ticketIds: analytics.backlog.tickets.map((ticket) => ticket.id),
-          missing: analytics.backlog.missing,
-        },
-        nextSprint: {
-          path: analytics.nextSprint.path,
-          ticketIds: analytics.nextSprint.tickets.map((ticket) => ticket.id),
-          missing: analytics.nextSprint.missing,
-        },
-        repos: {
-          configured: analytics.repoUsage.map((entry) => ({
-            id: entry.config.id,
-            provider: entry.config.provider,
-            remote: entry.config.remote,
-            ticketIds: entry.tickets.map((ticket) => ticket.id),
-          })),
-          unknownReferences: analytics.unknownRepoTickets.map((ticket) => ticket.id),
-        },
-      };
-
+      
       const lines: string[] = [];
 
       const workspaceTable = renderBoxTable([
