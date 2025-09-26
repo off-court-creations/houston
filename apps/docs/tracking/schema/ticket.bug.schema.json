@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/ticket.bug.schema.json",
+  "title": "Ticket (Bug)",
+  "allOf": [
+    {
+      "$ref": "./ticket.base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "bug"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^ST-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "story_points",
+        "time_tracking"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+allowed:
+  epic:
+    Backlog: ["Ready", "Canceled", "Archived"]
+    Ready: ["In Progress", "Canceled"]
+    In Progress: ["Blocked", "In Review", "Canceled"]
+    Blocked: ["In Progress", "In Review", "Canceled"]
+    In Review: ["In Progress", "Done", "Canceled"]
+    Done: ["Archived"]
+    Archived: []
+    Canceled: []
+  story:
+    Backlog: ["Ready", "Canceled"]
+    Ready: ["In Progress", "Canceled"]
+    In Progress: ["Blocked", "In Review", "Canceled"]
+    Blocked: ["In Progress", "In Review", "Canceled"]
+    In Review: ["In Progress", "Done", "Canceled"]
+    Done: ["Archived"]
+    Archived: []
+    Canceled: []
+  subtask:
+    Backlog: ["Ready", "Canceled"]
+    Ready: ["In Progress", "Canceled"]
+    In Progress: ["Blocked", "In Review", "Canceled"]
+    Blocked: ["In Progress", "In Review", "Canceled"]
+    In Review: ["Done", "Canceled"]
+    Done: ["Archived"]
+    Archived: []
+    Canceled: []
+  bug:
+    Backlog: ["Ready", "Canceled"]
+    Ready: ["In Progress", "Canceled"]
+    In Progress: ["Blocked", "In Review", "Canceled"]
+    Blocked: ["In Progress", "In Review", "Canceled"]
+    In Review: ["Done", "Canceled"]
+    Done: ["Archived"]
+    Archived: []
+    Canceled: []
+generated_by: houston@workspace-create

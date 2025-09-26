@@ -1,0 +1,17 @@
+tracking:
+  root: .
+  schemaDir: schema
+  ticketsDir: tickets
+  backlogDir: backlog
+  sprintsDir: sprints
+
+git:
+  autoCommit: true
+  autoPush: auto
+  autoPull: true
+  pullRebase: true
+
+# auth:
+#   github:
+#     host: github.com
+#     label: default

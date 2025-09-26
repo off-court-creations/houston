@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/backlog.schema.json",
+  "title": "Backlog Lists",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "ordered"
+      ],
+      "properties": {
+        "ordered": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/backlogTicketId"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "generated_by": {
+          "type": "string",
+          "pattern": "^houston@[^\\s]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "candidates"
+      ],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/backlogTicketId"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "generated_by": {
+          "type": "string",
+          "pattern": "^houston@[^\\s]+$"
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "backlogTicketId": {
+      "type": "string",
+      "pattern": "^(ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
+  }
+}

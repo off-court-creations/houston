@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/ticket.subtask.schema.json",
+  "title": "Ticket (Subtask)",
+  "allOf": [
+    {
+      "$ref": "./ticket.base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "subtask"
+        },
+        "parent_id": {
+          "type": "string",
+          "pattern": "^ST-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "parent_id",
+        "story_points"
+      ],
+      "not": {
+        "required": [
+          "time_tracking"
+        ]
+      }
+    }
+  ]
+}

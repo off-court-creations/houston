@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/sprint.schema.json",
+  "title": "Sprint Metadata",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "start_date",
+    "end_date"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^S-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "team_capacity": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^user:[a-z0-9_\\-]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^\\d+(?:\\.\\d+)?h$"
+      }
+    },
+    "burndown_source": {
+      "type": "string",
+      "pattern": "^(\\.\\./|\\./|[A-Za-z0-9])"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string",
+      "pattern": "^houston@[^\\s]+$"
+    }
+  },
+  "additionalProperties": false
+}

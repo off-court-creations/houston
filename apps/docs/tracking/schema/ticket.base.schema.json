@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-native-ticketing.example/schema/ticket.base.schema.json",
+  "title": "Ticket (Base)",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "summary",
+    "title",
+    "assignee",
+    "description",
+    "components",
+    "due_date",
+    "status",
+    "created_at",
+    "updated_at",
+    "version",
+    "code"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "epic",
+        "story",
+        "subtask",
+        "bug"
+      ]
+    },
+    "summary": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "title": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ]
+    },
+    "assignee": {
+      "$ref": "#/$defs/userIdentifier"
+    },
+    "description": {
+      "$ref": "#/$defs/relativeFilePath"
+    },
+    "components": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "labels": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "approvers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/userIdentifier"
+      }
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Backlog",
+        "Planned",
+        "Ready",
+        "In Progress",
+        "Blocked",
+        "In Review",
+        "Done",
+        "Archived",
+        "Canceled"
+      ]
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^(EPIC|ST)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      ]
+    },
+    "sprint_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^S-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generated_by": {
+      "type": "string",
+      "pattern": "^houston@[^\\s]+$"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "definition_of_done": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "story_points": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "time_tracking": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "date",
+          "by",
+          "minutes"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "by": {
+            "$ref": "#/$defs/userIdentifier"
+          },
+          "minutes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "note": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "code": {
+      "type": "object",
+      "required": [
+        "branch_strategy",
+        "auto_create_branch",
+        "auto_open_pr",
+        "repos"
+      ],
+      "properties": {
+        "branch_strategy": {
+          "type": "string",
+          "enum": [
+            "per-story",
+            "per-subtask",
+            "per-bug"
+          ]
+        },
+        "auto_create_branch": {
+          "type": "boolean"
+        },
+        "auto_open_pr": {
+          "type": "boolean"
+        },
+        "repos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/codeRepositoryLink"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "userIdentifier": {
+      "type": "string",
+      "pattern": "^(user|bot):[a-z0-9_\\-]+$"
+    },
+    "relativeFilePath": {
+      "type": "string",
+      "pattern": "^(\\.\\./|\\./|[A-Za-z0-9])"
+    },
+    "codeRepositoryLink": {
+      "type": "object",
+      "required": [
+        "repo_id",
+        "branch",
+        "created_by",
+        "created_at"
+      ],
+      "properties": {
+        "repo_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/relativeFilePath"
+        },
+        "branch": {
+          "type": "string",
+          "pattern": "^(epic|feat|task|fix)/(EPIC|ST|SB|BG)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}--[a-z0-9\\-]{1,32}$"
+        },
+        "created_by": {
+          "$ref": "#/$defs/userIdentifier"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pr": {
+          "type": "object",
+          "required": [
+            "base",
+            "head",
+            "state"
+          ],
+          "properties": {
+            "number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "base": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "head": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "merged",
+                "closed"
+              ]
+            },
+            "reviewers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/userIdentifier"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "last_synced_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

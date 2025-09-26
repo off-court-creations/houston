@@ -1,0 +1,7 @@
+routes: {}
+defaults:
+  epic: []
+  story: []
+  subtask: []
+  bug: []
+generated_by: houston@workspace-create
