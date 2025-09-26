@@ -10,7 +10,6 @@ import { c } from '../lib/colors.js';
 import {
   buildWorkspaceAnalytics,
   SprintOverview,
-  SprintPhase,
   TicketOverview,
   WorkspaceAnalytics,
 } from '../services/workspace-analytics.js';
@@ -18,6 +17,12 @@ import { collectWorkspaceInventory, TicketType } from '../services/workspace-inv
 import { canPrompt as canInteractive, intro as uiIntro, outro as uiOutro, promptConfirm as uiConfirm, promptText as uiText, promptSelect as uiSelect, spinner as uiSpinner } from '../lib/interactive.js';
 import { shortenTicketId } from '../lib/id.js';
 import { setDefaultWorkspaceIfUnset } from '../services/user-config.js';
+import { createGitHubRepo, listGitHubOwners, parseOwnerRepo } from '../services/github-repo.js';
+import { extractLabelFromAccount, formatAccountLabel } from '../lib/github.js';
+import { ensureDirectory, hasMeaningfulEntries } from '../services/workspace-files.js';
+import { DEFAULT_FOLLOW_UP_CHOICES, SetupFollowUpChoices, WorkspaceWizardPlan } from '../types/workspace.js';
+import { launchWorkspaceWizardTui } from '../tui/workspace/index.js';
+import { recordCommandHistory } from '../services/history.js';
 
 interface JsonOption {
   json?: boolean;
@@ -54,11 +59,11 @@ interface CreateWorkspaceOptions {
   public?: boolean;
   push?: boolean;
   authLabel?: string;
+  tui?: boolean;
+  noTui?: boolean;
 }
 
 const WORKSPACE_GENERATOR = 'houston@workspace-create';
-const IGNORED_DIRECTORY_ENTRIES = new Set(['.', '..', '.git', '.gitignore', '.gitattributes', '.DS_Store']);
-
 const FILE_TEMPLATES: Array<[string, string]> = [
   [
     'houston.config.yaml',
@@ -136,6 +141,8 @@ export function registerWorkspaceCommand(program: Command): void {
     .option('--no-git', 'skip git initialization')
     .option('-i, --interactive', 'run guided setup even when arguments are provided')
     .option('--no-interactive', 'run non-interactively (bypass prompts)')
+    .option('--tui', 'launch the setup TUI when supported')
+    .option('--no-tui', 'disable the setup TUI even when enabled via environment')
     .option('--remote <url>', 'add remote origin with the provided git URL')
     .option('--create-remote <owner/repo>', 'create a GitHub repo and set as origin')
     .option('--host <host>', 'GitHub host (default: github.com)')
@@ -172,7 +179,7 @@ export function registerWorkspaceCommand(program: Command): void {
           const host = (options.host ?? 'github.com').trim();
           const isPrivate = options.public ? false : true;
           const account = options.authLabel ? `github@${host}#${options.authLabel.trim()}` : undefined;
-          return createGitHubRepoFromArg(host, options.createRemote, isPrivate, account)
+          return createGitHubRepo(host, options.createRemote, isPrivate, account)
             .then((url) => {
               setRemoteOrigin(targetDir, url);
               if (account) {
@@ -328,29 +335,6 @@ export function registerWorkspaceCommand(program: Command): void {
   // No additional workspace aliases; use top-level `houston check` instead.
 }
 
-function ensureDirectory(targetDir: string): void {
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-    return;
-  }
-  const stats = fs.statSync(targetDir);
-  if (!stats.isDirectory()) {
-    throw new Error(`Target ${targetDir} exists and is not a directory.`);
-  }
-}
-
-function hasMeaningfulEntries(targetDir: string): boolean {
-  if (!fs.existsSync(targetDir)) {
-    return false;
-  }
-  try {
-    const entries = fs.readdirSync(targetDir);
-    return entries.some((entry) => !IGNORED_DIRECTORY_ENTRIES.has(entry));
-  } catch {
-    return false;
-  }
-}
-
 function scaffoldWorkspace(targetDir: string, force: boolean): void {
   const directories = [
     'schema',
@@ -485,111 +469,11 @@ function resolveInitialPushDecision(targetDir: string, options: CreateWorkspaceO
   return list.includes('origin');
 }
 
-import fetch from 'node-fetch';
-import { getSecret, listAccounts as listSecretAccounts } from '../services/secrets.js';
+import { listAccounts as listSecretAccounts } from '../services/secrets.js';
 import { listAuthAccounts as listTrackedAuthAccounts } from '../services/user-config.js';
 import { readYamlFile, writeYamlFile } from '../lib/yaml.js';
 
-async function createGitHubRepoFromArg(host: string, ownerRepo: string, isPrivate: boolean, account?: string): Promise<string> {
-  const [owner, repo] = ownerRepo.split('/');
-  if (!owner || !repo) throw new Error(`Invalid value for --create-remote: ${ownerRepo}. Expected owner/repo.`);
-  const apiBase = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
-  const token = account
-    ? await getSecret('archway-houston', account)
-    : await getSecret('archway-houston', `github@${host}#default`) || await getSecret('archway-houston', `github@${host}`);
-  if (!token) throw new Error(`No stored token for github@${host}. Run: houston auth login github --host ${host}`);
-  // Check if owner is a user or org; attempt org first
-  const createUrl = `${apiBase}/orgs/${owner}/repos`;
-  const altUrl = `${apiBase}/user/repos`;
-  const payload = { name: repo, private: isPrivate } as Record<string, unknown>;
-  let response = await fetch(createUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-      'User-Agent': 'archway-houston-cli',
-    },
-    body: JSON.stringify(payload),
-  });
-  if (response.status === 404) {
-    // Fall back to creating under the authenticated user
-    response = await fetch(altUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'archway-houston-cli',
-      },
-      body: JSON.stringify({ ...payload, name: repo }),
-    });
-  }
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`GitHub repo creation failed (${response.status}): ${text}`);
-  }
-  const data = (await response.json()) as { ssh_url?: string; clone_url?: string };
-  // Prefer SSH URL when available
-  return (data.ssh_url ?? data.clone_url) as string;
-}
-
 type OwnerChoice = { type: 'known'; owner: string } | { type: 'custom' };
-
-async function chooseGitHubOwner(host: string, account?: string): Promise<OwnerChoice | null> {
-  const choices = await listGitHubOwners(host, account).catch(() => [] as Array<{ label: string; value: string }>);
-  if (!choices || choices.length === 0) {
-    return { type: 'custom' };
-  }
-  const selected = await uiSelect('Select repository owner', [...choices, { label: 'Other…', value: '__custom__' }], { allowCustom: false });
-  if (!selected || selected === '__custom__') return { type: 'custom' };
-  return { type: 'known', owner: selected };
-}
-
-async function listGitHubOwners(host: string, account?: string): Promise<Array<{ label: string; value: string }>> {
-  const apiBase = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
-  const token = account
-    ? await getSecret('archway-houston', account)
-    : await getSecret('archway-houston', `github@${host}#default`) || await getSecret('archway-houston', `github@${host}`);
-  if (!token) return [];
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github+json',
-    'Content-Type': 'application/json',
-    'User-Agent': 'archway-houston-cli',
-  } as Record<string, string>;
-  const out: Array<{ label: string; value: string }> = [];
-  try {
-    const meRes = await fetch(`${apiBase}/user`, { headers });
-    if (meRes.ok) {
-      const me = (await meRes.json()) as { login?: string };
-      if (me?.login) out.push({ label: `Me (${me.login})`, value: me.login });
-    }
-  } catch {}
-  try {
-    const orgRes = await fetch(`${apiBase}/user/orgs`, { headers });
-    if (orgRes.ok) {
-      const orgs = (await orgRes.json()) as Array<{ login?: string }>;
-      for (const org of orgs) {
-        if (org?.login) out.push({ label: org.login, value: org.login });
-      }
-    }
-  } catch {}
-  const dedup = new Map<string, string>();
-  for (const c of out) dedup.set(c.value, c.label);
-  return Array.from(dedup.entries()).map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function parseOwnerRepo(input: string): { owner: string; repo: string } {
-  const idx = input.indexOf('/');
-  if (idx <= 0 || idx >= input.length - 1) {
-    throw new Error(`Invalid repository: ${input}. Expected owner/repo.`);
-  }
-  const owner = input.slice(0, idx).trim();
-  const repo = input.slice(idx + 1).trim();
-  if (!owner || !repo) throw new Error(`Invalid repository: ${input}. Expected owner/repo.`);
-  return { owner, repo };
-}
 
 async function selectGithubAccount(host: string): Promise<string | null> {
   // Gather tracked accounts via secrets and config
@@ -602,13 +486,14 @@ async function selectGithubAccount(host: string): Promise<string | null> {
   return selected;
 }
 
-function formatAccountLabel(account: string): string {
-  // github@host#label → host (label)
-  const m = account.match(/^github@([^#]+)(?:#(.*))?$/);
-  if (!m) return account;
-  const host = m[1];
-  const label = m[2] ?? 'default';
-  return `${host} (${label})`;
+async function chooseGitHubOwner(host: string, account?: string): Promise<OwnerChoice | null> {
+  const choices = await listGitHubOwners(host, account).catch(() => [] as Array<{ label: string; value: string }>);
+  if (!choices || choices.length === 0) {
+    return { type: 'custom' };
+  }
+  const selected = await uiSelect('Select repository owner', [...choices, { label: 'Other…', value: '__custom__' }], { allowCustom: false });
+  if (!selected || selected === '__custom__') return { type: 'custom' };
+  return { type: 'known', owner: selected };
 }
 
 function upsertWorkspaceAuth(rootDir: string, auth: { provider: 'github'; host: string; account: string }): void {
@@ -622,11 +507,252 @@ function upsertWorkspaceAuth(rootDir: string, auth: { provider: 'github'; host: 
 }
 
 function extractLabel(account: string): string | undefined {
-  const m = account.match(/^github@[^#]+#(.+)$/);
-  return m ? m[1] : undefined;
+  return extractLabelFromAccount(account);
+}
+
+function shouldUseWorkspaceTui(options: CreateWorkspaceOptions): boolean {
+  if (!canInteractive()) return false;
+  if (options.noTui) return false;
+  if (options.tui) return true;
+  return process.env.HOUSTON_TUI === '1';
+}
+
+function createInitialPlan(initialDir: string | undefined, options: CreateWorkspaceOptions): WorkspaceWizardPlan {
+  const cwd = process.cwd();
+  const directoryInput = initialDir ?? '.';
+  const directory = path.resolve(cwd, directoryInput);
+  const pushSetting: WorkspaceWizardPlan['remote']['push'] =
+    options.push === true ? true : options.push === false ? false : 'auto';
+
+  let remote: WorkspaceWizardPlan['remote'] = { mode: 'skip', push: pushSetting };
+
+  if (options.remote) {
+    remote = { mode: 'url', url: options.remote, push: pushSetting };
+  } else if (options.createRemote) {
+    const host = (options.host ?? 'github.com').trim();
+    let owner: string | undefined;
+    let repo: string | undefined;
+    try {
+      const parsed = parseOwnerRepo(options.createRemote);
+      owner = parsed.owner;
+      repo = parsed.repo;
+    } catch {
+      // fall back to TUI/manual input when parsing fails
+    }
+    remote = {
+      mode: 'github',
+      host,
+      owner,
+      repo,
+      private: options.public ? false : true,
+      account: options.authLabel ? `github@${host}#${options.authLabel}` : undefined,
+      push: pushSetting,
+    };
+  }
+
+  return {
+    directory,
+    allowOverwrite: Boolean(options.force),
+    initGit: options.git !== false,
+    remote,
+    followUps: { ...DEFAULT_FOLLOW_UP_CHOICES },
+    autoRunCommands: true,
+  };
+}
+
+async function runWorkspaceNewInteractiveTui(initialDir: string | undefined, options: CreateWorkspaceOptions): Promise<void> {
+  const initialPlan = createInitialPlan(initialDir, options);
+  const plan = await launchWorkspaceWizardTui(initialPlan);
+  if (!plan) {
+    return;
+  }
+  await performWorkspaceSetupFromPlan(plan, options, { source: 'tui' });
+}
+
+async function performWorkspaceSetupFromPlan(
+  plan: WorkspaceWizardPlan,
+  options: CreateWorkspaceOptions,
+  context: { source: 'tui' | 'prompts' },
+): Promise<void> {
+  const targetDir = path.resolve(process.cwd(), plan.directory);
+  const useSpinner = context.source === 'prompts';
+  const sp = uiSpinner();
+
+  try {
+    if (useSpinner) {
+      await sp.start('Scaffolding workspace...');
+    } else {
+      console.log(c.subheading('Scaffolding workspace...'));
+    }
+
+    try {
+      const existingEntries = hasMeaningfulEntries(targetDir);
+      if (existingEntries && !plan.allowOverwrite) {
+        throw new Error(`Target directory ${targetDir} is not empty. Enable overwrite or choose a different path.`);
+      }
+      ensureDirectory(targetDir);
+      scaffoldWorkspace(targetDir, plan.allowOverwrite || existingEntries);
+      try {
+        copyBundledSchemas(path.join(targetDir, 'schema'));
+      } catch {
+        // best effort; fall back to runtime bundled schemas
+      }
+
+      if (plan.initGit) {
+        initGitRepository(targetDir);
+        try { createInitialCommit(targetDir); } catch {}
+        await applyRemotePlan(targetDir, plan, options);
+      }
+
+      if (useSpinner) {
+        sp.stop('Workspace created');
+      } else {
+        console.log(c.ok(`Workspace created at ${targetDir}`));
+      }
+    } catch (error) {
+      if (useSpinner) {
+        sp.stopWithError('Failed to create workspace');
+      }
+      throw error;
+    }
+
+    try { setDefaultWorkspaceIfUnset(targetDir); } catch {}
+
+    showSetupFocus();
+
+    const queue = buildSetupQueue(targetDir, plan.followUps);
+    const commandRows: string[][] = [[c.bold('Command'), c.bold('Purpose')]];
+    for (const cmd of queue) {
+      const purpose = describeSetupCommand(cmd);
+      const formatted = formatSetupCommand(cmd);
+      commandRows.push([formatted, purpose]);
+    }
+
+    console.log('');
+    console.log(c.heading('Houston workspace ready'));
+    console.log(`Workspace scaffolded at ${c.id(targetDir)}`);
+
+    if (plan.autoRunCommands) {
+      runSetupQueue(queue, targetDir);
+    } else {
+      console.log('');
+      console.log(c.subheading('Run these next'));
+      for (const line of renderBoxTable(commandRows)) {
+        console.log(line);
+      }
+    }
+
+    recordCommandHistory({ command: 'workspace new', timestamp: new Date().toISOString(), result: 'success' });
+  } catch (error) {
+    recordCommandHistory({ command: 'workspace new', timestamp: new Date().toISOString(), result: 'error' });
+    throw error;
+  }
+}
+
+async function applyRemotePlan(targetDir: string, plan: WorkspaceWizardPlan, options: CreateWorkspaceOptions): Promise<void> {
+  const remote = plan.remote;
+  if (!remote || remote.mode === 'skip') {
+    return;
+  }
+
+  if (remote.mode === 'url') {
+    if (!remote.url) {
+      throw new Error('Remote URL is required.');
+    }
+    setRemoteOrigin(targetDir, remote.url);
+    if (computeInitialPushDecision(targetDir, remote.push, options)) {
+      pushInitial(targetDir);
+    }
+    return;
+  }
+
+  if (remote.mode === 'github') {
+    const host = remote.host ?? 'github.com';
+    if (!remote.owner || !remote.repo) {
+      throw new Error('Repository owner and name are required to create a GitHub remote.');
+    }
+    const url = await createGitHubRepo(host, `${remote.owner}/${remote.repo}`, remote.private !== false, remote.account);
+    setRemoteOrigin(targetDir, url);
+    if (remote.account) {
+      try { upsertWorkspaceAuth(targetDir, { provider: 'github', host, account: remote.account }); } catch {}
+    }
+    if (computeInitialPushDecision(targetDir, remote.push, options)) {
+      pushInitial(targetDir);
+    }
+  }
+}
+
+function computeInitialPushDecision(
+  targetDir: string,
+  planDecision: WorkspaceWizardPlan['remote']['push'] | undefined,
+  options: CreateWorkspaceOptions,
+): boolean {
+  if (planDecision === true) return true;
+  if (planDecision === false) return false;
+  return resolveInitialPushDecision(targetDir, options);
+}
+
+function showSetupFocus(): void {
+  const checklistRows: string[][] = [
+    [c.bold('Area'), c.bold('Focus')],
+    ['People', 'Add core users (owner/IC/PM)'],
+    ['Components', 'Record stable product areas'],
+    ['Labels', 'Define taxonomy for filtering/reporting'],
+    ['Repos', 'Register code repositories (remote optional)'],
+    ['Auth', 'Store a GitHub token for automation'],
+    ['Tickets', 'Create your first epic/story/subtask'],
+    ['Sprints', 'Create your first sprint shell'],
+    ['Backlog', 'Plan top items into a sprint'],
+  ];
+  console.log('');
+  console.log(c.subheading('Setup focus'));
+  for (const line of renderBoxTable(checklistRows)) {
+    console.log(line);
+  }
+}
+
+function runSetupQueue(queue: string[], cwd: string): void {
+  for (const cmd of queue) {
+    if (cmd.startsWith('cd ')) {
+      continue;
+    }
+    const pretty = formatSetupCommand(cmd);
+    console.log(pretty);
+    const parts = cmd.trim().split(/\s+/);
+    const argv = parts[0] === 'houston' ? parts.slice(1) : parts;
+    const res = spawnSync('houston', argv, { cwd, stdio: 'inherit' });
+    if (res.error) {
+      throw res.error;
+    }
+    if (typeof res.status === 'number' && res.status !== 0) {
+      process.exitCode = res.status;
+      break;
+    }
+  }
+}
+
+export function buildSetupQueue(targetDir: string, choices: SetupFollowUpChoices): string[] {
+  const queue: string[] = [`cd ${targetDir}`];
+  if (choices.addUsers) queue.push('houston user add');
+  if (choices.addComponents) queue.push('houston component add');
+  if (choices.addLabels) queue.push('houston label add');
+  if (choices.authLogin) queue.push('houston auth login github');
+  if (choices.addRepos) queue.push('houston repo add');
+  if (choices.newEpic) queue.push('houston ticket new epic --interactive');
+  if (choices.newStory) queue.push('houston ticket new story --interactive');
+  if (choices.newSubtask) queue.push('houston ticket new subtask --interactive');
+  if (choices.newSprint) queue.push('houston sprint new --interactive');
+  if (choices.planBacklog) queue.push('houston backlog plan --interactive');
+  queue.push('houston check');
+  queue.push('houston workspace info');
+  return queue;
 }
 
 async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWorkspaceOptions = {}): Promise<void> {
+  if (shouldUseWorkspaceTui(options)) {
+    await runWorkspaceNewInteractiveTui(initialDir, options);
+    return;
+  }
   await uiIntro('Create Houston Workspace');
   const directory = await uiText('Directory', { defaultValue: initialDir ?? '.', required: true });
   const targetDir = path.resolve(process.cwd(), directory ?? '.');
@@ -690,7 +816,7 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
             owner = parsed.owner; repoName = parsed.repo;
           }
           const priv = await uiConfirm('Private repository?', true);
-          const url = await createGitHubRepoFromArg(host, `${owner}/${repoName}`, priv, account ?? undefined);
+    const url = await createGitHubRepo(host, `${owner}/${repoName}`, priv, account ?? undefined);
           setRemoteOrigin(targetDir, url);
           // Persist selected auth in workspace config
           if (account) {
@@ -795,8 +921,10 @@ async function runWorkspaceNewInteractive(initialDir?: string, options: CreateWo
         console.log(line);
       }
     }
+    recordCommandHistory({ command: 'workspace new', timestamp: new Date().toISOString(), result: 'success' });
   } catch (error) {
     sp.stopWithError('Failed to create workspace');
+    recordCommandHistory({ command: 'workspace new', timestamp: new Date().toISOString(), result: 'error' });
     throw error;
   }
 }

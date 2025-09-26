@@ -37,12 +37,17 @@
     "enquirer": "^2.4.1",
     "figlet": "^1.9.3",
     "glob": "^10.3.10",
+    "ink": "^4.4.1",
+    "ink-select-input": "^5.0.0",
+    "ink-text-input": "^5.0.0",
     "node-fetch": "^3.3.2",
+    "react": "^18.3.1",
     "table": "^6.9.0",
     "yaml": "^2.3.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
+    "@types/react": "^19.1.13",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.56.0",
